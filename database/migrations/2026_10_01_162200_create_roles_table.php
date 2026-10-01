@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('oauth_personal_access_clients')) {
-            Schema::create('oauth_personal_access_clients', function (Blueprint $table) {
-                $table->bigIncrements('id');
-                $table->unsignedBigInteger('client_id');
+        if (!Schema::hasTable('roles')) {
+            Schema::create('roles', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->text('description')->nullable();
+                $table->enum('status', ['Active', 'Inactive'])->default('Active');
                 $table->timestamps();
             });
         }
@@ -25,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('oauth_personal_access_clients');
+        Schema::dropIfExists('roles');
     }
 };
