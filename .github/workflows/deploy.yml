@@ -28,8 +28,6 @@ jobs:
 
       - name: Clean unwanted folders from build_output
         run: |
-          rm -rf ./build_output/vendor
-          rm -rf ./build_output/vendor_old
           rm -rf ./build_output/system
           rm -rf ./build_output/node_modules
           rm -rf ./build_output/storage
@@ -56,8 +54,6 @@ jobs:
           exclude: |
             **/.git*
             **/.env
-            **/vendor/**
-            **/vendor_old/**
             **/system/**
             **/node_modules/**
             **/storage/**
