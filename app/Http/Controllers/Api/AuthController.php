@@ -23,16 +23,16 @@ class AuthController extends Controller
 
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
-            $user->load('role');
+            $user->load('roleModel');
 
             // Check if user has a role
-            if ($user->role) {
+            if ($user->roleModel) {
                 $token = $user->createToken('AdminPanelToken')->plainTextToken;
                 
                 // Load permissions
                 $permissions = [];
                 // Check role name dynamically from roles table
-                if (strtolower($user->role->name) === 'super admin' || strtolower($user->role->name) === 'admin') {
+                if (strtolower($user->roleModel->name) === 'super admin' || strtolower($user->roleModel->name) === 'admin') {
                     $permissions = Module::where('status', 'Active')->get()->map(function($module) {
                         return [
                             'module_id' => $module->id,
@@ -84,10 +84,10 @@ class AuthController extends Controller
     public function getProfile(Request $request)
     {
         $user = $request->user();
-        $user->load('role');
+        $user->load('roleModel');
         
         $permissions = [];
-        if ($user->role && (strtolower($user->role->name) === 'super admin' || strtolower($user->role->name) === 'admin')) {
+        if ($user->roleModel && (strtolower($user->roleModel->name) === 'super admin' || strtolower($user->roleModel->name) === 'admin')) {
             $permissions = Module::where('status', 'Active')->get()->map(function($module) {
                 return [
                     'module_id' => $module->id,
