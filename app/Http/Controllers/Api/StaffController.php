@@ -15,8 +15,10 @@ class StaffController extends Controller
      */
     public function index()
     {
-        $staff = User::where('role', 'staff')
-                     ->with(['roleModel', 'permissions.module'])
+        $staff = User::whereHas('role', function($q) {
+                         $q->where('name', '!=', 'Super Admin');
+                     })
+                     ->with(['role', 'permissions.module'])
                      ->get();
 
         return response()->json([
@@ -42,7 +44,6 @@ class StaffController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'staff', // maintain the old enum just in case
             'role_id' => $request->role_id,
             'status' => 'Active',
         ]);
@@ -69,7 +70,7 @@ class StaffController extends Controller
      */
     public function show($id)
     {
-        $staff = User::with(['roleModel', 'permissions.module'])->find($id);
+        $staff = User::with(['role', 'permissions.module'])->find($id);
 
         if (!$staff) {
             return response()->json(['success' => false, 'message' => 'Staff not found.'], 404);

@@ -23,7 +23,6 @@ class User extends Authenticatable
         'email',
         'phone_number',
         'password',
-        'role',
         'role_id',
         'status',
         'avatar',
@@ -32,7 +31,7 @@ class User extends Authenticatable
     /**
      * Get the role associated with the user.
      */
-    public function roleModel()
+    public function role()
     {
         return $this->belongsTo(Role::class, 'role_id');
     }

@@ -23,14 +23,16 @@ class AuthController extends Controller
 
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
+            $user->load('role');
 
-            // Check if user is super admin or staff
-            if (in_array($user->role, ['super_admin', 'staff'])) {
+            // Check if user has a role
+            if ($user->role) {
                 $token = $user->createToken('AdminPanelToken')->plainTextToken;
                 
                 // Load permissions
                 $permissions = [];
-                if ($user->role === 'super_admin') {
+                // Check role name dynamically from roles table
+                if (strtolower($user->role->name) === 'super admin' || strtolower($user->role->name) === 'admin') {
                     $permissions = Module::where('status', 'Active')->get()->map(function($module) {
                         return [
                             'module_id' => $module->id,
@@ -51,8 +53,6 @@ class AuthController extends Controller
                     $user->unsetRelation('permissions'); 
                 }
                 
-                $user->load('roleModel');
-
                 return response()->json([
                     'success' => true,
                     'message' => 'Login successful.',
@@ -67,7 +67,7 @@ class AuthController extends Controller
                 Auth::logout();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Only Super Admin and Staff can login.'
+                    'message' => 'Unauthorized. Please assign a role to this user.'
                 ], 403);
             }
         }
@@ -84,9 +84,10 @@ class AuthController extends Controller
     public function getProfile(Request $request)
     {
         $user = $request->user();
+        $user->load('role');
         
         $permissions = [];
-        if ($user->role === 'super_admin') {
+        if ($user->role && (strtolower($user->role->name) === 'super admin' || strtolower($user->role->name) === 'admin')) {
             $permissions = Module::where('status', 'Active')->get()->map(function($module) {
                 return [
                     'module_id' => $module->id,
@@ -106,8 +107,6 @@ class AuthController extends Controller
             $user->unsetRelation('permissions');
         }
         
-        $user->load('roleModel');
-
         return response()->json([
             'success' => true,
             'message' => 'Profile retrieved successfully.',
