@@ -25,7 +25,7 @@ class AuthController extends Controller
 
             // Check if user is super admin or staff
             if (in_array($user->role, ['super_admin', 'staff'])) {
-                $token = $user->createToken('AdminPanelToken')->accessToken;
+                $token = $user->createToken('AdminPanelToken')->plainTextToken;
                 
                 return response()->json([
                     'success' => true,
@@ -115,7 +115,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         // Revoke the token that was used to authenticate the current request
-        $request->user()->token()->revoke();
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json([
             'success' => true,
