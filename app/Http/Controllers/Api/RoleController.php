@@ -9,6 +9,16 @@ use Illuminate\Http\Request;
 class RoleController extends Controller
 {
     /**
+     * Apply middleware based on permissions.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Role Access,VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Role Access,ADD')->only(['store']);
+        $this->middleware('permission:Role Access,EDIT')->only(['update']);
+        $this->middleware('permission:Role Access,DELETE')->only(['destroy']);
+    }
+    /**
      * Display a listing of the roles.
      */
     public function index()

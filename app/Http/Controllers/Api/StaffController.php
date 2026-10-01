@@ -11,6 +11,17 @@ use Illuminate\Support\Facades\Hash;
 class StaffController extends Controller
 {
     /**
+     * Apply middleware based on permissions.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Staff,VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Staff,ADD')->only(['store']);
+        $this->middleware('permission:Staff,EDIT')->only(['update']);
+        $this->middleware('permission:Staff,DELETE')->only(['destroy']);
+    }
+
+    /**
      * Display a listing of the staff.
      */
     public function index()

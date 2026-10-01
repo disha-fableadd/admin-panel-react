@@ -9,6 +9,16 @@ use Illuminate\Http\Request;
 class ModuleController extends Controller
 {
     /**
+     * Apply middleware based on permissions.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Modules (Products),VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Modules (Products),ADD')->only(['store']);
+        $this->middleware('permission:Modules (Products),EDIT')->only(['update']);
+        $this->middleware('permission:Modules (Products),DELETE')->only(['destroy']);
+    }
+    /**
      * Display a listing of the modules.
      */
     public function index()
