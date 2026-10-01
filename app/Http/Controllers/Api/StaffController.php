@@ -15,10 +15,10 @@ class StaffController extends Controller
      */
     public function index()
     {
-        $staff = User::whereHas('role', function($q) {
+        $staff = User::whereHas('roleModel', function($q) {
                          $q->where('name', '!=', 'Super Admin');
                      })
-                     ->with(['role', 'permissions.module'])
+                     ->with(['roleModel', 'permissions.module'])
                      ->get();
 
         return response()->json([
@@ -70,7 +70,7 @@ class StaffController extends Controller
      */
     public function show($id)
     {
-        $staff = User::with(['role', 'permissions.module'])->find($id);
+        $staff = User::with(['roleModel', 'permissions.module'])->find($id);
 
         if (!$staff) {
             return response()->json(['success' => false, 'message' => 'Staff not found.'], 404);
