@@ -15,14 +15,14 @@ class ModuleSeeder extends Seeder
         $defaultPermissions = ['VIEW', 'ADD', 'EDIT', 'DELETE'];
 
         $modules = [
-            ['name' => 'Dashboard', 'permission' => $defaultPermissions, 'status' => 'Active'],
+            ['name' => 'Dashboard', 'permission' => ['VIEW'], 'status' => 'Active'],
             ['name' => 'Staff', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Clients', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Setup', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Membership Plans', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Renewals', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Transactions', 'permission' => $defaultPermissions, 'status' => 'Active'],
-            ['name' => 'Reports', 'permission' => $defaultPermissions, 'status' => 'Active'],
+            ['name' => 'Reports', 'permission' => ['VIEW'], 'status' => 'Active'],
             ['name' => 'Role Access', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Roles & Modules (Staff)', 'permission' => $defaultPermissions, 'status' => 'Active'],
             ['name' => 'Modules (Products)', 'permission' => $defaultPermissions, 'status' => 'Active'],
