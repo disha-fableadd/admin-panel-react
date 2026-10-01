@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('oauth_personal_access_clients')) {
-            Schema::create('oauth_personal_access_clients', function (Blueprint $table) {
-                $table->bigIncrements('id');
-                $table->unsignedBigInteger('client_id');
+        if (!Schema::hasTable('modules')) {
+            Schema::create('modules', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->text('permission')->nullable(); // e.g., JSON array ['VIEW', 'ADD', 'EDIT', 'DELETE']
+                $table->enum('status', ['Active', 'Inactive'])->default('Active');
                 $table->timestamps();
             });
         }
@@ -25,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('oauth_personal_access_clients');
+        Schema::dropIfExists('modules');
     }
 };

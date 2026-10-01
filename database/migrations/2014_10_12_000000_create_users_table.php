@@ -11,20 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('position')->nullable();
-            $table->string('email')->unique();
-            $table->string('phone_number')->nullable();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->enum('role', ['super_admin', 'staff', 'user'])->default('user');
-            $table->enum('status', ['Active', 'Inactive'])->default('Active');
-            $table->string('avatar')->nullable();
-            $table->rememberToken();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('users')) {
+            Schema::create('users', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('position')->nullable();
+                $table->string('email')->unique();
+                $table->string('phone_number')->nullable();
+                $table->timestamp('email_verified_at')->nullable();
+                $table->string('password');
+                $table->enum('role', ['super_admin', 'staff', 'user'])->default('user');
+                $table->enum('status', ['Active', 'Inactive'])->default('Active');
+                $table->string('avatar')->nullable();
+                $table->rememberToken();
+                $table->timestamps();
+            });
+        }
     }
 
     /**
