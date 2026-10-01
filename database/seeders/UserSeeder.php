@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
@@ -13,13 +14,16 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
+        $superAdminRole = Role::where('name', 'Super Admin')->first();
+        $staffRole = Role::where('name', 'Staff')->first();
+
         // Super Admin
         User::firstOrCreate(
             ['email' => 'admin@gmail.com'],
             [
                 'name' => 'Super Admin',
                 'password' => Hash::make('12345678'),
-                'role' => 'super_admin',
+                'role_id' => $superAdminRole ? $superAdminRole->id : null,
                 'position' => 'Administrator',
                 'status' => 'Active',
                 'phone_number' => '1234567890'
@@ -32,7 +36,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Staff Member',
                 'password' => Hash::make('12345678'),
-                'role' => 'staff',
+                'role_id' => $staffRole ? $staffRole->id : null,
                 'position' => 'Editor',
                 'status' => 'Active',
                 'phone_number' => '0987654321'
