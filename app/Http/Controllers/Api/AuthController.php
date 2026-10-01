@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use App\Models\Module;
 
 class AuthController extends Controller
 {
@@ -27,12 +28,38 @@ class AuthController extends Controller
             if (in_array($user->role, ['super_admin', 'staff'])) {
                 $token = $user->createToken('AdminPanelToken')->plainTextToken;
                 
+                // Load permissions
+                $permissions = [];
+                if ($user->role === 'super_admin') {
+                    $permissions = Module::where('status', 'Active')->get()->map(function($module) {
+                        return [
+                            'module_id' => $module->id,
+                            'module_name' => $module->name,
+                            'permission' => ['VIEW', 'ADD', 'EDIT', 'DELETE']
+                        ];
+                    });
+                } else {
+                    $user->load('permissions.module');
+                    $permissions = $user->permissions->map(function($perm) {
+                        return [
+                            'module_id' => $perm->module_id,
+                            'module_name' => $perm->module ? $perm->module->name : null,
+                            'permission' => $perm->permission
+                        ];
+                    });
+                    // Hide the loaded relationship to keep user object clean
+                    $user->unsetRelation('permissions'); 
+                }
+                
+                $user->load('roleModel');
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Login successful.',
                     'data' => [
                         'token' => $token,
-                        'user' => $user
+                        'user' => $user,
+                        'permissions' => $permissions
                     ]
                 ], 200);
             } else {
@@ -58,10 +85,36 @@ class AuthController extends Controller
     {
         $user = $request->user();
         
+        $permissions = [];
+        if ($user->role === 'super_admin') {
+            $permissions = Module::where('status', 'Active')->get()->map(function($module) {
+                return [
+                    'module_id' => $module->id,
+                    'module_name' => $module->name,
+                    'permission' => ['VIEW', 'ADD', 'EDIT', 'DELETE']
+                ];
+            });
+        } else {
+            $user->load('permissions.module');
+            $permissions = $user->permissions->map(function($perm) {
+                return [
+                    'module_id' => $perm->module_id,
+                    'module_name' => $perm->module ? $perm->module->name : null,
+                    'permission' => $perm->permission
+                ];
+            });
+            $user->unsetRelation('permissions');
+        }
+        
+        $user->load('roleModel');
+
         return response()->json([
             'success' => true,
             'message' => 'Profile retrieved successfully.',
-            'data' => $user
+            'data' => [
+                'user' => $user,
+                'permissions' => $permissions
+            ]
         ], 200);
     }
 
@@ -106,6 +159,36 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Profile updated successfully.',
             'data' => $user
+        ], 200);
+    }
+
+    /**
+     * Change Password API
+     */
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        // Check if current password matches
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Current password does not match.'
+            ], 400);
+        }
+
+        // Update password
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password changed successfully.'
         ], 200);
     }
 

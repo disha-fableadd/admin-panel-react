@@ -25,12 +25,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/profile', [AuthController::class, 'getProfile']);
     Route::post('/update-profile', [AuthController::class, 'updateProfile']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
     
     // Roles API
     Route::apiResource('roles', \App\Http\Controllers\Api\RoleController::class);
 
     // Modules API
     Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class);
+    
+    // Staff API
+    Route::apiResource('staff', \App\Http\Controllers\Api\StaffController::class);
     
     Route::post('/logout', [AuthController::class, 'logout']);
 });
