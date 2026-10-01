@@ -23,5 +23,8 @@ Route::middleware('auth:api')->group(function () {
         return $request->user();
     });
 
+    Route::get('/profile', [AuthController::class, 'getProfile']);
+    Route::post('/update-profile', [AuthController::class, 'updateProfile']);
+    
     Route::post('/logout', [AuthController::class, 'logout']);
 });
