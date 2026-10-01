@@ -24,9 +24,26 @@ class User extends Authenticatable
         'phone_number',
         'password',
         'role',
+        'role_id',
         'status',
         'avatar',
     ];
+
+    /**
+     * Get the role associated with the user.
+     */
+    public function roleModel()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Get the permissions for the user.
+     */
+    public function permissions()
+    {
+        return $this->hasMany(UserPermission::class);
+    }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -46,4 +63,23 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    /**
+     * Get the user's avatar with full URL.
+     *
+     * @param  string  $value
+     * @return string|null
+     */
+    public function getAvatarAttribute($value)
+    {
+        if ($value) {
+            // Check if it's already a full URL (e.g. from a third-party auth)
+            if (filter_var($value, FILTER_VALIDATE_URL)) {
+                return $value;
+            }
+            return url($value);
+        }
+        
+        return null;
+    }
 }
