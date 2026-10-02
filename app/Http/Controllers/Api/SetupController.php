@@ -27,6 +27,8 @@ class SetupController extends Controller
 
         $setup = Setup::create($validated);
 
+        $this->notifyAllUsers('New Setup Created', 'A new setup was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Setup created successfully.',

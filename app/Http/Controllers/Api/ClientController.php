@@ -51,6 +51,8 @@ class ClientController extends Controller
             $client->projectModules()->sync($validated['assign_module']);
         }
 
+        $this->notifyAllUsers('New Client Created', 'A new client was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Client created successfully.',

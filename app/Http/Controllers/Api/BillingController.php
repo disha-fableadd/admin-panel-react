@@ -48,6 +48,8 @@ class BillingController extends Controller
 
         $billing = Billing::create($validated);
 
+        $this->notifyAllUsers('New Billing Created', 'A new billing plan was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Billing created successfully.',

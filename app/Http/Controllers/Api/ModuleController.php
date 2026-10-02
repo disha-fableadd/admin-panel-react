@@ -43,6 +43,8 @@ class ModuleController extends Controller
 
         $module = Module::create($request->all());
 
+        $this->notifyAllUsers('New Module Created', 'A new module was added.');
+
         return response()->json([
             'success' => true, 
             'message' => 'Module created successfully.', 
