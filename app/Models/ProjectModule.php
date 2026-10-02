@@ -12,6 +12,7 @@ class ProjectModule extends Model
     protected $fillable = [
         'name',
         'product_id',
+        'project_id',
         'status',
         'description',
     ];
@@ -22,5 +23,13 @@ class ProjectModule extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Get the project that owns the module.
+     */
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 }

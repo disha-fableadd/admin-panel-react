@@ -12,20 +12,22 @@ class Membership extends Model
     protected $fillable = [
         'product_id',
         'project_id',
-        'billing_id',
         'project_modules_id',
+        'is_custom_billing',
+        'billing_title',
         'plan_name',
         'status',
         'amount',
-        'renewal_charge',
+        'renewal_amount',
         'max_user',
         'max_branch',
         'notes',
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
-        'renewal_charge' => 'decimal:2',
+        'is_custom_billing' => 'boolean',
+        'amount' => 'array',
+        'renewal_amount' => 'array',
         'max_user' => 'integer',
         'max_branch' => 'integer',
     ];
@@ -46,13 +48,7 @@ class Membership extends Model
         return $this->belongsTo(Project::class);
     }
 
-    /**
-     * Get the billing associated with the membership.
-     */
-    public function billing()
-    {
-        return $this->belongsTo(Billing::class);
-    }
+    // billing relation removed as it is handled manually now
 
     /**
      * Get the project module associated with the membership.
