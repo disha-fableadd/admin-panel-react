@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 class SettingController extends Controller
 {
     /**
-     * Get current Razorpay / Gateway settings.
+     * 1. GET: Fetch current Razorpay / Gateway settings.
      */
     public function getRazorpaySettings()
     {
@@ -35,9 +35,11 @@ class SettingController extends Controller
     }
 
     /**
-     * Save or update Razorpay / Gateway settings.
+     * 2. POST: Save or Update Razorpay / Gateway settings.
+     * If setting data does not exist, it creates (Add).
+     * If setting data exists, it updates (Update).
      */
-    public function updateRazorpaySettings(Request $request)
+    public function saveRazorpaySettings(Request $request)
     {
         $validated = $request->validate([
             'gateway_environment' => 'nullable|string|max:255',
@@ -60,38 +62,16 @@ class SettingController extends Controller
 
         if ($setting) {
             $setting->update($validated);
+            $message = 'Razorpay settings updated successfully.';
         } else {
             $setting = Setting::create($validated);
+            $message = 'Razorpay settings saved successfully.';
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Razorpay settings saved successfully.',
+            'message' => $message,
             'data' => $setting
         ], 200);
-    }
-
-    /**
-     * General settings index method.
-     */
-    public function index()
-    {
-        return $this->getRazorpaySettings();
-    }
-
-    /**
-     * General settings store / update method.
-     */
-    public function store(Request $request)
-    {
-        return $this->updateRazorpaySettings($request);
-    }
-
-    /**
-     * General settings update method.
-     */
-    public function update(Request $request)
-    {
-        return $this->updateRazorpaySettings($request);
     }
 }
