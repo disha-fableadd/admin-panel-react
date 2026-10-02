@@ -9,9 +9,9 @@ use Illuminate\Http\Request;
 class SettingController extends Controller
 {
     /**
-     * 1. GET: Fetch current Razorpay / Gateway settings.
+     * 1. GET: Fetch current settings.
      */
-    public function getRazorpaySettings()
+    public function getSettings()
     {
         $settings = Setting::pluck('value', 'key')->toArray();
 
@@ -23,6 +23,7 @@ class SettingController extends Controller
             'key_secret' => '',
             'webhook_secret' => '',
             'status' => 'Active',
+            'is_default_project' => null,
         ];
 
         $setting = array_merge($defaultSettings, $settings);
@@ -34,11 +35,11 @@ class SettingController extends Controller
     }
 
     /**
-     * 2. POST: Save or Update Razorpay / Gateway settings.
+     * 2. POST: Save or Update settings.
      * If setting data does not exist, it creates (Add).
      * If setting data exists, it updates (Update).
      */
-    public function saveRazorpaySettings(Request $request)
+    public function saveSettings(Request $request)
     {
         $validated = $request->validate([
             'gateway_environment' => 'nullable|string|max:255',
@@ -49,6 +50,7 @@ class SettingController extends Controller
             'secret_key' => 'nullable|string',
             'webhook_secret' => 'nullable|string',
             'status' => 'nullable|in:Active,Inactive',
+            'is_default_project' => 'nullable', // Can be integer or string depending on project ID
         ]);
 
         // Support both 'secret_key' and 'key_secret' field names
@@ -68,7 +70,7 @@ class SettingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Razorpay settings saved successfully.',
+            'message' => 'Settings saved successfully.',
             'data' => $settings
         ], 200);
     }
