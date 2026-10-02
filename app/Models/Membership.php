@@ -23,13 +23,42 @@ class Membership extends Model
         'notes',
     ];
 
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'renewal_charge' => 'decimal:2',
+        'max_user' => 'integer',
+        'max_branch' => 'integer',
+    ];
+
+    /**
+     * Get the product associated with the membership.
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Get the project associated with the membership.
+     */
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * Get the billing associated with the membership.
+     */
     public function billing()
     {
         return $this->belongsTo(Billing::class);
     }
 
-    public function project()
+    /**
+     * Get the project module associated with the membership.
+     */
+    public function projectModule()
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(ProjectModule::class, 'project_modules_id');
     }
 }

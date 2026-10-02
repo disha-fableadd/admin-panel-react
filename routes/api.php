@@ -45,6 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Billings API
     Route::apiResource('billings', \App\Http\Controllers\Api\BillingController::class);
 
+    // Memberships API
+    Route::apiResource('memberships', \App\Http\Controllers\Api\MembershipController::class);
+
     // Clients API
     Route::apiResource('clients', \App\Http\Controllers\Api\ClientController::class);
     
