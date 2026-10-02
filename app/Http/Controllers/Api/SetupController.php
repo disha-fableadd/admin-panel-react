@@ -10,7 +10,7 @@ class SetupController extends Controller
 {
     public function index()
     {
-        $setups = Setup::with('client')->get();
+        $setups = Setup::with(['client.product', 'client.membership.billing', 'client.membership.project'])->get();
         return response()->json([
             'success' => true,
             'data' => $setups
@@ -36,7 +36,7 @@ class SetupController extends Controller
 
     public function show(Setup $setup)
     {
-        $setup->load('client');
+        $setup->load(['client.product', 'client.membership.billing', 'client.membership.project']);
         return response()->json([
             'success' => true,
             'data' => $setup
