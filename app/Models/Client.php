@@ -19,6 +19,7 @@ class Client extends Model
         'status',
         'is_custom_billing',
         'billing_title',
+        'amount',
         'renewal_amount',
         'start_date',
         'expiry_date',
@@ -27,6 +28,8 @@ class Client extends Model
 
     protected $casts = [
         'is_custom_billing' => 'boolean',
+        'amount' => 'array',
+        'renewal_amount' => 'array',
     ];
 
     // Many-to-Many relationship with ProjectModule
