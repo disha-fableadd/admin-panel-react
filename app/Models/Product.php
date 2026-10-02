@@ -5,22 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ProjectModule extends Model
+class Product extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'name',
-        'product_id',
-        'status',
+        'title',
         'description',
+        'status',
     ];
 
     /**
-     * Get the product that owns the module.
+     * Get the project modules associated with the product.
      */
-    public function product()
+    public function projectModules()
     {
-        return $this->belongsTo(Product::class);
+        return $this->hasMany(ProjectModule::class);
     }
 }
