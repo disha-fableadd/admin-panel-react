@@ -11,7 +11,7 @@ class ClientController extends Controller
 {
     public function index()
     {
-        $clients = Client::with(['product', 'membership', 'projectModules'])->get();
+        $clients = Client::with(['product', 'membership.billing', 'projectModules'])->get();
         return response()->json([
             'success' => true,
             'data' => $clients
@@ -75,7 +75,7 @@ class ClientController extends Controller
 
     public function show(Client $client)
     {
-        $client->load(['product', 'membership', 'projectModules']);
+        $client->load(['product', 'membership.billing', 'projectModules']);
         return response()->json([
             'success' => true,
             'data' => $client
