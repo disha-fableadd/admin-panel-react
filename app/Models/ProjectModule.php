@@ -11,7 +11,7 @@ class ProjectModule extends Model
 
     protected $fillable = [
         'name',
-        'product',
+        'product_id',
         'status',
         'description',
     ];
