@@ -30,8 +30,6 @@ return new class extends Migration
                 $table->date('start_date')->nullable();
                 $table->date('expiry_date')->nullable();
                 $table->string('location')->nullable();
-                $table->string('domain')->nullable();
-                $table->json('db_credential')->nullable();
                 
                 $table->timestamps();
             });

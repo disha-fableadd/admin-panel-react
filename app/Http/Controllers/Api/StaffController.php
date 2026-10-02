@@ -45,18 +45,33 @@ class StaffController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
+            'position' => 'nullable|string|max:255',
             'role_id' => 'required|exists:roles,id',
+            'status' => 'required|string|in:Active,Inactive',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone_number' => 'nullable|string|max:20',
+            'password' => 'required|string|min:8',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'permissions' => 'nullable|array', // e.g., [{"module_id": 1, "permission": ["VIEW", "ADD"]}, ...]
         ]);
 
+        $avatarPath = null;
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads/avatar'), $filename);
+            $avatarPath = 'uploads/avatar/' . $filename;
+        }
+
         $staff = User::create([
             'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'position' => $request->position,
             'role_id' => $request->role_id,
-            'status' => 'Active',
+            'status' => $request->status,
+            'email' => $request->email,
+            'phone_number' => $request->phone_number,
+            'password' => Hash::make($request->password),
+            'avatar' => $avatarPath,
         ]);
 
         if ($request->has('permissions')) {
@@ -103,16 +118,38 @@ class StaffController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$id,
+            'position' => 'nullable|string|max:255',
             'role_id' => 'required|exists:roles,id',
+            'status' => 'required|string|in:Active,Inactive',
+            'email' => 'required|string|email|max:255|unique:users,email,'.$id,
+            'phone_number' => 'nullable|string|max:20',
+            'password' => 'nullable|string|min:8',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'permissions' => 'nullable|array',
         ]);
 
-        $staff->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'role_id' => $request->role_id,
-        ]);
+        if ($request->hasFile('avatar')) {
+            if ($staff->avatar && file_exists(public_path($staff->avatar))) {
+                unlink(public_path($staff->avatar));
+            }
+            $file = $request->file('avatar');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads/avatar'), $filename);
+            $staff->avatar = 'uploads/avatar/' . $filename;
+        }
+
+        $staff->name = $request->name;
+        $staff->position = $request->position;
+        $staff->role_id = $request->role_id;
+        $staff->status = $request->status;
+        $staff->email = $request->email;
+        $staff->phone_number = $request->phone_number;
+
+        if ($request->filled('password')) {
+            $staff->password = Hash::make($request->password);
+        }
+
+        $staff->save();
 
         if ($request->has('permissions')) {
             // Delete old permissions

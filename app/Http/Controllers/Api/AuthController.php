@@ -140,12 +140,15 @@ class AuthController extends Controller
 
         if ($request->hasFile('avatar')) {
             // Delete old avatar if exists
-            if ($user->avatar) {
-                Storage::disk('public')->delete(str_replace('/storage/', '', $user->avatar));
+            if ($user->avatar && file_exists(public_path($user->avatar))) {
+                unlink(public_path($user->avatar));
             }
 
-            $avatarPath = $request->file('avatar')->store('avatars', 'public');
-            $user->avatar = '/storage/' . $avatarPath;
+            $file = $request->file('avatar');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads/avatar'), $filename);
+            
+            $user->avatar = 'uploads/avatar/' . $filename;
         }
 
         if ($request->filled('password')) {
