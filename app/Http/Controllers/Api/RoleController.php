@@ -23,7 +23,7 @@ class RoleController extends Controller
      */
     public function index()
     {
-        $roles = Role::all();
+        $roles = Role::where('name', '!=', 'Super Admin')->get();
         return response()->json([
             'success' => true, 
             'data' => $roles
@@ -111,6 +111,13 @@ class RoleController extends Controller
                 'success' => false, 
                 'message' => 'Role not found.'
             ], 404);
+        }
+
+        if ($role->name === 'Super Admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The Super Admin role cannot be deleted.'
+            ], 403);
         }
 
         $role->delete();

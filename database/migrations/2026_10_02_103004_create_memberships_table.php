@@ -11,23 +11,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('memberships', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
-            $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
-            $table->foreignId('billing_id')->constrained('billings')->onDelete('cascade');
-            $table->foreignId('project_modules_id')->constrained('project_modules')->onDelete('cascade');
-            
-            $table->string('plan_name');
-            $table->string('status')->default('Active');
-            $table->decimal('amount', 10, 2)->default(0);
-            $table->decimal('renewal_charge', 10, 2)->default(0);
-            $table->integer('max_user')->default(0);
-            $table->integer('max_branch')->default(0);
-            $table->text('notes')->nullable();
-            
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('memberships')) {
+            Schema::create('memberships', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+                $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
+                $table->foreignId('billing_id')->constrained('billings')->onDelete('cascade');
+                $table->foreignId('project_modules_id')->constrained('project_modules')->onDelete('cascade');
+                
+                $table->string('plan_name');
+                $table->string('status')->default('Active');
+                $table->decimal('amount', 10, 2)->default(0);
+                $table->decimal('renewal_charge', 10, 2)->default(0);
+                $table->integer('max_user')->default(0);
+                $table->integer('max_branch')->default(0);
+                $table->text('notes')->nullable();
+                
+                $table->timestamps();
+            });
+        }
     }
 
     /**

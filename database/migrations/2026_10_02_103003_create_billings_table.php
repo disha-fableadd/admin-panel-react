@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('billings', function (Blueprint $table) {
-            $table->id();
-            $table->string('title');
-            $table->text('description')->nullable();
-            $table->string('status')->default('Active'); // Used 'status' as 'stats' usually implies status in this context
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('billings')) {
+            Schema::create('billings', function (Blueprint $table) {
+                $table->id();
+                $table->string('title');
+                $table->text('description')->nullable();
+                $table->string('status')->default('Active'); // Used 'status' as 'stats' usually implies status in this context
+                $table->timestamps();
+            });
+        }
     }
 
     /**

@@ -11,7 +11,7 @@ class ProjectModuleController extends Controller
     public function index(Request $request)
     {
         // in get api only active modules show
-        $query = ProjectModule::query();
+        $query = ProjectModule::with('product');
         $query->where('status', 'Active');
         
         return response()->json([
@@ -40,6 +40,7 @@ class ProjectModuleController extends Controller
 
     public function show(ProjectModule $projectModule)
     {
+        $projectModule->load('product');
         return response()->json([
             'success' => true,
             'data' => $projectModule
