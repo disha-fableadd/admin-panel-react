@@ -23,12 +23,9 @@ class Client extends Model
         'start_date',
         'expiry_date',
         'location',
-        'domain',
-        'db_credential',
     ];
 
     protected $casts = [
-        'db_credential' => 'array',
         'is_custom_billing' => 'boolean',
     ];
 
@@ -46,5 +43,10 @@ class Client extends Model
     public function membership()
     {
         return $this->belongsTo(Membership::class);
+    }
+
+    public function setup()
+    {
+        return $this->hasOne(Setup::class);
     }
 }

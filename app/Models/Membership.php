@@ -27,4 +27,9 @@ class Membership extends Model
     {
         return $this->belongsTo(Billing::class);
     }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
 }
