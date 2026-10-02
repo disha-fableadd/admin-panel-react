@@ -56,6 +56,11 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Staff API
     Route::apiResource('staff', \App\Http\Controllers\Api\StaffController::class);
+
+    // Settings API (Razorpay & General)
+    Route::get('/settings/razorpay', [\App\Http\Controllers\Api\SettingController::class, 'getRazorpaySettings']);
+    Route::post('/settings/razorpay', [\App\Http\Controllers\Api\SettingController::class, 'updateRazorpaySettings']);
+    Route::apiResource('settings', \App\Http\Controllers\Api\SettingController::class);
     
     Route::post('/logout', [AuthController::class, 'logout']);
 });
