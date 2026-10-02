@@ -12,22 +12,14 @@ class Controller extends BaseController
 
     protected function notifyAllUsers($title, $message)
     {
-        $users = \App\Models\User::all();
-        $notifications = [];
         $now = now();
         
-        foreach ($users as $user) {
-            $notifications[] = [
-                'user_id' => $user->id,
-                'title' => $title,
-                'message' => $message,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-        
-        if (!empty($notifications)) {
-            \App\Models\Notification::insert($notifications);
-        }
+        \App\Models\Notification::insert([
+            'user_id' => null, // null means it's a global notification for all users
+            'title' => $title,
+            'message' => $message,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }
