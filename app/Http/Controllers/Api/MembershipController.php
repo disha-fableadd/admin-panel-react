@@ -13,7 +13,7 @@ class MembershipController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Membership::with(['product', 'project', 'billing', 'projectModule']);
+        $query = Membership::with(['product', 'project', 'projectModule']);
 
         if ($request->has('product_id') && !empty($request->product_id)) {
             $query->where('product_id', $request->product_id);
@@ -23,9 +23,6 @@ class MembershipController extends Controller
             $query->where('project_id', $request->project_id);
         }
 
-        if ($request->has('billing_id') && !empty($request->billing_id)) {
-            $query->where('billing_id', $request->billing_id);
-        }
 
         if ($request->has('project_modules_id') && !empty($request->project_modules_id)) {
             $query->where('project_modules_id', $request->project_modules_id);
@@ -55,12 +52,13 @@ class MembershipController extends Controller
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'project_id' => 'required|exists:projects,id',
-            'billing_id' => 'required|exists:billings,id',
             'project_modules_id' => 'required|exists:project_modules,id',
+            'is_custom_billing' => 'boolean',
+            'billing_title' => 'nullable|string|max:255',
             'plan_name' => 'required|string|max:255',
             'status' => 'nullable|in:Active,Inactive',
-            'amount' => 'required|numeric|min:0',
-            'renewal_charge' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|array',
+            'renewal_amount' => 'nullable|array',
             'max_user' => 'nullable|integer|min:0',
             'max_branch' => 'nullable|integer|min:0',
             'notes' => 'nullable|string',
@@ -71,7 +69,7 @@ class MembershipController extends Controller
         }
 
         $membership = Membership::create($validated);
-        $membership->load(['product', 'project', 'billing', 'projectModule']);
+        $membership->load(['product', 'project', 'projectModule']);
 
         return response()->json([
             'success' => true,
@@ -85,7 +83,7 @@ class MembershipController extends Controller
      */
     public function show($id)
     {
-        $membership = Membership::with(['product', 'project', 'billing', 'projectModule'])->find($id);
+        $membership = Membership::with(['product', 'project', 'projectModule'])->find($id);
 
         if (!$membership) {
             return response()->json([
@@ -117,19 +115,20 @@ class MembershipController extends Controller
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'project_id' => 'required|exists:projects,id',
-            'billing_id' => 'required|exists:billings,id',
             'project_modules_id' => 'required|exists:project_modules,id',
+            'is_custom_billing' => 'boolean',
+            'billing_title' => 'nullable|string|max:255',
             'plan_name' => 'required|string|max:255',
             'status' => 'nullable|in:Active,Inactive',
-            'amount' => 'required|numeric|min:0',
-            'renewal_charge' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|array',
+            'renewal_amount' => 'nullable|array',
             'max_user' => 'nullable|integer|min:0',
             'max_branch' => 'nullable|integer|min:0',
             'notes' => 'nullable|string',
         ]);
 
         $membership->update($validated);
-        $membership->load(['product', 'project', 'billing', 'projectModule']);
+        $membership->load(['product', 'project', 'projectModule']);
 
         return response()->json([
             'success' => true,
