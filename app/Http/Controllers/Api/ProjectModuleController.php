@@ -33,6 +33,8 @@ class ProjectModuleController extends Controller
         $projectModule = ProjectModule::create($validated);
         $projectModule->load(['product', 'project']);
 
+        $this->notifyAllUsers('New Project Module Created', 'A new project module was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Project Module created successfully.',

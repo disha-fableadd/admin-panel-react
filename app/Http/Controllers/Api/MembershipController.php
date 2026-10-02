@@ -71,6 +71,8 @@ class MembershipController extends Controller
         $membership = Membership::create($validated);
         $membership->load(['product', 'project', 'projectModule']);
 
+        $this->notifyAllUsers('New Membership Created', 'A new membership plan was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Membership plan created successfully.',

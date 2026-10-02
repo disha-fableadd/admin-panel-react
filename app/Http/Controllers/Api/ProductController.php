@@ -52,6 +52,8 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
+        $this->notifyAllUsers('New Product Created', 'A new product was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Product created successfully.',

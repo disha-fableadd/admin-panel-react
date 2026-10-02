@@ -43,6 +43,8 @@ class RoleController extends Controller
 
         $role = Role::create($request->all());
 
+        $this->notifyAllUsers('New Role Created', 'A new role was added.');
+
         return response()->json([
             'success' => true, 
             'message' => 'Role created successfully.', 

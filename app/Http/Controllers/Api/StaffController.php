@@ -85,6 +85,8 @@ class StaffController extends Controller
             }
         }
 
+        $this->notifyAllUsers('New Staff Created', 'A new staff member was added.');
+
         return response()->json([
             'success' => true, 
             'message' => 'Staff created successfully.', 

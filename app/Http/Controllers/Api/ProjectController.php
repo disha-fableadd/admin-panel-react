@@ -54,6 +54,8 @@ class ProjectController extends Controller
         $project = Project::create($validated);
         $project->load('product');
 
+        $this->notifyAllUsers('New Project Created', 'A new project was added.');
+
         return response()->json([
             'success' => true,
             'message' => 'Project created successfully.',
