@@ -58,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('staff', \App\Http\Controllers\Api\StaffController::class);
 
     // Notifications API
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
     Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
     Route::post('/notifications/{id}/mark-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
