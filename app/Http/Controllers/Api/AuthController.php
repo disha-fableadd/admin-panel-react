@@ -145,7 +145,8 @@ class AuthController extends Controller
             }
 
             $file = $request->file('avatar');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $extension = $file->getClientOriginalExtension() ?: 'jpg';
+            $filename = time() . '_' . uniqid() . '.' . $extension;
             $file->move(public_path('uploads/avatar'), $filename);
             
             $user->avatar = 'uploads/avatar/' . $filename;
