@@ -51,6 +51,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Clients API
     Route::apiResource('clients', \App\Http\Controllers\Api\ClientController::class);
     
+    // Setups API
+    Route::apiResource('setups', \App\Http\Controllers\Api\SetupController::class);
+    
     // Staff API
     Route::apiResource('staff', \App\Http\Controllers\Api\StaffController::class);
     
