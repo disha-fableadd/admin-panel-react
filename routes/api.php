@@ -32,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Modules API
     Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class);
+
+    // Project Modules API
+    Route::apiResource('project-modules', \App\Http\Controllers\Api\ProjectModuleController::class);
     
     // Staff API
     Route::apiResource('staff', \App\Http\Controllers\Api\StaffController::class);
