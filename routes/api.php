@@ -63,9 +63,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/{id}/mark-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
 
     // Settings API (Razorpay & General)
+    // Settings API (Razorpay: 1 Get & 1 Save/Update)
     Route::get('/settings/razorpay', [\App\Http\Controllers\Api\SettingController::class, 'getRazorpaySettings']);
-    Route::post('/settings/razorpay', [\App\Http\Controllers\Api\SettingController::class, 'updateRazorpaySettings']);
-    Route::apiResource('settings', \App\Http\Controllers\Api\SettingController::class);
+    Route::post('/settings/razorpay', [\App\Http\Controllers\Api\SettingController::class, 'saveRazorpaySettings']);
     
     Route::post('/logout', [AuthController::class, 'logout']);
 });
