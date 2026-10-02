@@ -24,7 +24,7 @@ class ProjectModuleController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'product' => 'required|string|max:255',
+            'product_id' => 'required|integer',
             'status' => 'required|in:Active,Inactive',
             'description' => 'nullable|string',
         ]);
@@ -50,7 +50,7 @@ class ProjectModuleController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'product' => 'required|string|max:255',
+            'product_id' => 'required|integer',
             'status' => 'required|in:Active,Inactive',
             'description' => 'nullable|string',
         ]);
