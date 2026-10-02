@@ -12,12 +12,7 @@ class Setting extends Model
     protected $table = 'settings';
 
     protected $fillable = [
-        'gateway_environment',
-        'settlement_currency',
-        'auto_capture',
-        'key_id',
-        'key_secret',
-        'webhook_secret',
-        'status',
+        'key',
+        'value',
     ];
 }

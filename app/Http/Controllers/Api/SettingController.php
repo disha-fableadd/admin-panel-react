@@ -13,20 +13,19 @@ class SettingController extends Controller
      */
     public function getRazorpaySettings()
     {
-        $setting = Setting::first();
+        $settings = Setting::pluck('value', 'key')->toArray();
 
-        if (!$setting) {
-            $setting = [
-                'id' => null,
-                'gateway_environment' => 'Live Production Mode',
-                'settlement_currency' => 'INR (₹ - Indian Rupee)',
-                'auto_capture' => 'Immediate Capture (Recommended)',
-                'key_id' => '',
-                'key_secret' => '',
-                'webhook_secret' => '',
-                'status' => 'Active',
-            ];
-        }
+        $defaultSettings = [
+            'gateway_environment' => 'Live Production Mode',
+            'settlement_currency' => 'INR (₹ - Indian Rupee)',
+            'auto_capture' => 'Immediate Capture (Recommended)',
+            'key_id' => '',
+            'key_secret' => '',
+            'webhook_secret' => '',
+            'status' => 'Active',
+        ];
+
+        $setting = array_merge($defaultSettings, $settings);
 
         return response()->json([
             'success' => true,
@@ -58,20 +57,19 @@ class SettingController extends Controller
         }
         unset($validated['secret_key']);
 
-        $setting = Setting::first();
-
-        if ($setting) {
-            $setting->update($validated);
-            $message = 'Razorpay settings updated successfully.';
-        } else {
-            $setting = Setting::create($validated);
-            $message = 'Razorpay settings saved successfully.';
+        foreach ($validated as $key => $value) {
+            Setting::updateOrCreate(
+                ['key' => $key],
+                ['value' => $value]
+            );
         }
+        
+        $settings = Setting::pluck('value', 'key')->toArray();
 
         return response()->json([
             'success' => true,
-            'message' => $message,
-            'data' => $setting
+            'message' => 'Razorpay settings saved successfully.',
+            'data' => $settings
         ], 200);
     }
 }
