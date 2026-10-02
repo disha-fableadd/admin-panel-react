@@ -44,7 +44,7 @@ class ProjectController extends Controller
             'product_id' => 'required|exists:products,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'nullable|in:Active,Inactive',
+            'status' => 'nullable|string|max:50',
         ]);
 
         if (!isset($validated['status'])) {
@@ -101,7 +101,7 @@ class ProjectController extends Controller
             'product_id' => 'required|exists:products,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'nullable|in:Active,Inactive',
+            'status' => 'nullable|string|max:50',
         ]);
 
         $project->update($validated);
