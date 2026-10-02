@@ -24,6 +24,7 @@ class NotificationController extends Controller
         }
 
         $notifications = Notification::where('user_id', $userId)
+            ->orWhereNull('user_id')
             ->latest()
             ->get();
             
@@ -41,7 +42,10 @@ class NotificationController extends Controller
         $userId = $request->user() ? $request->user()->id : null;
 
         $notification = Notification::where('id', $id)
-            ->where('user_id', $userId)
+            ->where(function($query) use ($userId) {
+                $query->where('user_id', $userId)
+                      ->orWhereNull('user_id');
+            })
             ->first();
 
         if (!$notification) {
@@ -67,7 +71,10 @@ class NotificationController extends Controller
     {
         $userId = $request->user() ? $request->user()->id : null;
 
-        Notification::where('user_id', $userId)
+        Notification::where(function($query) use ($userId) {
+                $query->where('user_id', $userId)
+                      ->orWhereNull('user_id');
+            })
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
