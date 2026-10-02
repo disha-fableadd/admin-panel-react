@@ -22,4 +22,12 @@ class Product extends Model
     {
         return $this->hasMany(ProjectModule::class);
     }
+
+    /**
+     * Get the projects associated with the product.
+     */
+    public function projects()
+    {
+        return $this->hasMany(Project::class);
+    }
 }
