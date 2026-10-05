@@ -57,13 +57,24 @@ class StatusController extends Controller
             'module' => \App\Models\Module::class,
             'project-module' => \App\Models\ProjectModule::class,
             'project_module' => \App\Models\ProjectModule::class,
+            'product' => \App\Models\Product::class,
+            'project' => \App\Models\Project::class,
+            'billing' => \App\Models\Billing::class,
+            'setup' => \App\Models\Setup::class,
+            
             // Plural support
+            'staffs' => \App\Models\User::class,
+            'users' => \App\Models\User::class,
             'clients' => \App\Models\Client::class,
             'memberships' => \App\Models\Membership::class,
             'transactions' => \App\Models\Transaction::class,
             'roles' => \App\Models\Role::class,
             'modules' => \App\Models\Module::class,
             'project-modules' => \App\Models\ProjectModule::class,
+            'products' => \App\Models\Product::class,
+            'projects' => \App\Models\Project::class,
+            'billings' => \App\Models\Billing::class,
+            'setups' => \App\Models\Setup::class,
         ];
 
         return $map[strtolower($modelName)] ?? null;
