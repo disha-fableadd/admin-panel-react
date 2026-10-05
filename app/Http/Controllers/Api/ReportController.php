@@ -114,27 +114,43 @@ class ReportController extends Controller
 
     /**
      * Membership Plan Performance — default 5 per page, with proper pagination.
+     * Optional filter: product_id
      */
     public function membershipPlanPerformance(Request $request)
     {
-        $perPage = (int) $request->get('per_page', 5);
-        $page    = (int) $request->get('page', 1);
+        $perPage   = (int) $request->get('per_page', 5);
+        $page      = (int) $request->get('page', 1);
+        $productId = $request->get('product_id', '');
 
         $query = Membership::withCount([
-            'clients as total_clients',
-            'clients as active_clients'   => fn($q) => $q->where('status', 'Active'),
-            'clients as expired_clients'  => fn($q) => $q->where('status', 'Expired'),
-            'clients as renewed_clients'  => fn($q) => $q->where('status', 'Renewed'),
+            'clients as total_clients'    => fn($q) => $productId ? $q->where('product_id', $productId) : $q,
+            'clients as active_clients'   => fn($q) => $productId
+                ? $q->where('product_id', $productId)->where('status', 'Active')
+                : $q->where('status', 'Active'),
+            'clients as expired_clients'  => fn($q) => $productId
+                ? $q->where('product_id', $productId)->where('status', 'Expired')
+                : $q->where('status', 'Expired'),
+            'clients as renewed_clients'  => fn($q) => $productId
+                ? $q->where('product_id', $productId)->where('status', 'Renewed')
+                : $q->where('status', 'Renewed'),
         ])
         ->orderByDesc('total_clients');
+
+        // If product_id filter is set, only show memberships that have clients with that product
+        if ($productId) {
+            $query->whereHas('clients', fn($q) => $q->where('product_id', $productId));
+        }
 
         $total       = $query->count();
         $memberships = $query->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
-        $data = $memberships->map(function ($membership) {
-            // Revenue = sum of all captured transactions for clients on this membership plan
-            $revenue = Transaction::whereHas('client', function ($q) use ($membership) {
+        $data = $memberships->map(function ($membership) use ($productId) {
+            // Revenue = sum of captured transactions for clients on this plan (filtered by product_id if set)
+            $revenue = Transaction::whereHas('client', function ($q) use ($membership, $productId) {
                 $q->where('membership_id', $membership->id);
+                if ($productId) {
+                    $q->where('product_id', $productId);
+                }
             })->where('status', 'captured')->sum('amount');
 
             $renewedCount = $membership->renewed_clients ?? 0;
@@ -166,6 +182,7 @@ class ReportController extends Controller
             ],
         ], 200);
     }
+
 
     /**
      * Transaction Report — latest 5 by default, with search/filter & pagination.
