@@ -113,30 +113,33 @@ class ReportController extends Controller
     }
 
     /**
-     * Membership Plan Performance — top 5 by default, paginated.
+     * Membership Plan Performance — default 5 per page, with proper pagination.
      */
     public function membershipPlanPerformance(Request $request)
     {
-        $limit = (int) $request->get('limit', 5);
+        $perPage = (int) $request->get('per_page', 5);
+        $page    = (int) $request->get('page', 1);
 
-        $memberships = Membership::withCount([
+        $query = Membership::withCount([
             'clients as total_clients',
             'clients as active_clients'   => fn($q) => $q->where('status', 'Active'),
             'clients as expired_clients'  => fn($q) => $q->where('status', 'Expired'),
             'clients as renewed_clients'  => fn($q) => $q->where('status', 'Renewed'),
         ])
-        ->orderByDesc('total_clients')
-        ->limit($limit)
-        ->get()
-        ->map(function ($membership) {
+        ->orderByDesc('total_clients');
+
+        $total       = $query->count();
+        $memberships = $query->offset(($page - 1) * $perPage)->limit($perPage)->get();
+
+        $data = $memberships->map(function ($membership) {
             // Revenue = sum of all captured transactions for clients on this membership plan
             $revenue = Transaction::whereHas('client', function ($q) use ($membership) {
                 $q->where('membership_id', $membership->id);
             })->where('status', 'captured')->sum('amount');
 
-            $renewedCount  = $membership->renewed_clients ?? 0;
-            $expiredCount  = $membership->expired_clients ?? 0;
-            $renewalRate   = ($renewedCount + $expiredCount) > 0
+            $renewedCount = $membership->renewed_clients ?? 0;
+            $expiredCount = $membership->expired_clients ?? 0;
+            $renewalRate  = ($renewedCount + $expiredCount) > 0
                 ? round(($renewedCount / ($renewedCount + $expiredCount)) * 100)
                 : 0;
 
@@ -153,9 +156,14 @@ class ReportController extends Controller
         });
 
         return response()->json([
-            'success' => true,
-            'data'    => $memberships,
-            'limit'   => $limit,
+            'success'    => true,
+            'data'       => $data,
+            'pagination' => [
+                'total'        => $total,
+                'per_page'     => $perPage,
+                'current_page' => $page,
+                'last_page'    => $perPage > 0 ? (int) ceil($total / $perPage) : 1,
+            ],
         ], 200);
     }
 
