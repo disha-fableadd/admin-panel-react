@@ -76,6 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/membership-plan-performance', [\App\Http\Controllers\Api\ReportController::class, 'membershipPlanPerformance']);
     Route::get('/reports/transaction-report', [\App\Http\Controllers\Api\ReportController::class, 'transactionReport']);
 
+    // Generic Status Update API
+    Route::post('/update-status', [\App\Http\Controllers\Api\StatusController::class, 'updateStatus']);
 
     // Notifications API
     Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);

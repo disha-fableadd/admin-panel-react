@@ -23,6 +23,7 @@ class SettingController extends Controller
             'key_secret' => '',
             'webhook_secret' => '',
             'status' => 'Active',
+            'razorpay_active' => '1',
             'is_default_project' => null,
         ];
 
@@ -50,6 +51,7 @@ class SettingController extends Controller
             'secret_key' => 'nullable|string',
             'webhook_secret' => 'nullable|string',
             'status' => 'nullable|in:Active,Inactive',
+            'razorpay_active' => 'nullable|in:1,0,true,false',
             'is_default_project' => 'nullable', // Can be integer or string depending on project ID
         ]);
 
