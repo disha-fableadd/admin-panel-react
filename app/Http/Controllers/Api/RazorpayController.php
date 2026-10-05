@@ -135,4 +135,134 @@ class RazorpayController extends Controller
             'message' => 'Payment verification failed.'
         ], 400);
     }
+
+    public function createPaymentLink(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric',
+            'client_id' => 'required|integer',
+            'description' => 'nullable|string',
+            'currency' => 'nullable|string',
+        ]);
+
+        $credentials = $this->getRazorpayCredentials();
+
+        if (empty($credentials['key_id']) || empty($credentials['key_secret'])) {
+            return response()->json(['success' => false, 'message' => 'Razorpay credentials not configured.'], 400);
+        }
+
+        $amountInPaise = $request->amount * 100;
+
+        $client = \App\Models\Client::find($request->client_id);
+        $customer = [
+            'name' => $client ? $client->client_name : 'Customer',
+            'email' => $client ? $client->work_email : '',
+            'contact' => $client ? $client->mobile : '',
+        ];
+
+        $response = Http::withBasicAuth($credentials['key_id'], $credentials['key_secret'])
+            ->post('https://api.razorpay.com/v1/payment_links', [
+                'amount' => $amountInPaise,
+                'currency' => $request->currency ?? 'INR',
+                'accept_partial' => false,
+                'description' => $request->description ?? 'Payment for invoice',
+                'customer' => $customer,
+                'notify' => [
+                    'sms' => false,
+                    'email' => false
+                ],
+                'reminder_enable' => true,
+            ]);
+
+        if ($response->successful()) {
+            $linkData = $response->json();
+            
+            // Create a pending transaction record
+            Transaction::create([
+                'user_id' => auth()->id(),
+                'client_id' => $request->client_id,
+                'payment_link_id' => $linkData['id'],
+                'short_url' => $linkData['short_url'],
+                'amount' => $request->amount,
+                'currency' => $linkData['currency'],
+                'status' => 'pending', // Pending payment link
+                'description' => $request->description,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'payment_link_id' => $linkData['id'],
+                    'short_url' => $linkData['short_url'],
+                    'amount' => $request->amount,
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create payment link',
+            'error' => $response->json(),
+        ], 500);
+    }
+
+    public function webhook(Request $request)
+    {
+        $webhookSecret = Setting::where('key', 'webhook_secret')->value('value') ?? env('RAZORPAY_WEBHOOK_SECRET');
+        $signature = $request->header('X-Razorpay-Signature');
+
+        if (!$signature || !$webhookSecret) {
+            return response()->json(['success' => false, 'message' => 'Invalid signature or secret missing'], 400);
+        }
+
+        $payload = $request->getContent();
+        $expectedSignature = hash_hmac('sha256', $payload, $webhookSecret);
+
+        if (!hash_equals($expectedSignature, $signature)) {
+            return response()->json(['success' => false, 'message' => 'Invalid signature'], 400);
+        }
+
+        $data = json_decode($payload, true);
+        $event = $data['event'] ?? null;
+
+        if ($event === 'payment_link.paid' || $event === 'payment_link.authenticated') {
+            $paymentLinkId = $data['payload']['payment_link']['entity']['id'] ?? null;
+            $paymentId = $data['payload']['payment_link']['entity']['payment_id'] ?? null;
+            
+            if ($paymentLinkId) {
+                $transaction = Transaction::where('payment_link_id', $paymentLinkId)->first();
+                if ($transaction && $transaction->status !== 'captured') {
+                    $transaction->update([
+                        'status' => 'captured',
+                        'razorpay_payment_id' => $paymentId,
+                    ]);
+
+                    // Optional: Automatically update client's expiry date if it's a renewal
+                    if ($transaction->client_id) {
+                        $client = \App\Models\Client::find($transaction->client_id);
+                        if ($client) {
+                            $client->status = 'Active';
+                            // $client->expiry_date = Carbon::parse($client->expiry_date)->addYear();
+                            $client->save();
+                        }
+                    }
+                }
+            }
+        } elseif ($event === 'payment.captured') {
+            $orderId = $data['payload']['payment']['entity']['order_id'] ?? null;
+            $paymentId = $data['payload']['payment']['entity']['id'] ?? null;
+            
+            if ($orderId) {
+                $transaction = Transaction::where('razorpay_order_id', $orderId)->first();
+                if ($transaction && $transaction->status !== 'captured') {
+                    $transaction->update([
+                        'status' => 'captured',
+                        'razorpay_payment_id' => $paymentId,
+                    ]);
+                }
+            }
+        }
+
+        return response()->json(['success' => true]);
+    }
 }
