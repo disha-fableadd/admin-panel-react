@@ -63,6 +63,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/staff-counts', [\App\Http\Controllers\Api\DashboardController::class, 'staffCounts']);
     Route::get('/memberships-counts', [\App\Http\Controllers\Api\DashboardController::class, 'membershipCounts']);
 
+    // Renewals API
+    Route::get('/renewals/sync-from-clients', [\App\Http\Controllers\Api\RenewalController::class, 'syncFromClients']);
+    Route::post('/renewals/{id}/process', [\App\Http\Controllers\Api\RenewalController::class, 'process']);
+    Route::get('/renewals', [\App\Http\Controllers\Api\RenewalController::class, 'index']);
+    Route::get('/renewals/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'show']);
+    Route::post('/renewals', [\App\Http\Controllers\Api\RenewalController::class, 'store']);
+    Route::put('/renewals/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'update']);
+    Route::delete('/renewals/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'destroy']);
+
+
     // Razorpay API
     Route::post('/razorpay/create-order', [\App\Http\Controllers\Api\RazorpayController::class, 'createOrder']);
     Route::post('/razorpay/verify-payment', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);

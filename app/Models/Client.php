@@ -52,4 +52,12 @@ class Client extends Model
     {
         return $this->hasOne(Setup::class);
     }
+
+    /**
+     * Get all renewal records for this client.
+     */
+    public function renewals()
+    {
+        return $this->hasMany(Renewal::class);
+    }
 }
