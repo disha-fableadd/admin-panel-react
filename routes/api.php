@@ -76,6 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Razorpay API
     Route::post('/razorpay/create-order', [\App\Http\Controllers\Api\RazorpayController::class, 'createOrder']);
     Route::post('/razorpay/verify-payment', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
+    Route::post('/razorpay/payment-link', [\App\Http\Controllers\Api\RazorpayController::class, 'createPaymentLink']);
 
     // Transactions API
     Route::get('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
@@ -102,3 +103,6 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::post('/logout', [AuthController::class, 'logout']);
 });
+
+// Razorpay Webhook API (MUST be outside auth middleware)
+Route::post('/razorpay/webhook', [\App\Http\Controllers\Api\RazorpayController::class, 'webhook']);

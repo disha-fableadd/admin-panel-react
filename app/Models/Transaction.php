@@ -13,6 +13,8 @@ class Transaction extends Model
         'user_id',
         'client_id',
         'razorpay_order_id',
+        'payment_link_id',
+        'short_url',
         'razorpay_payment_id',
         'razorpay_signature',
         'amount',
