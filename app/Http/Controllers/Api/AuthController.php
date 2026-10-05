@@ -23,6 +23,15 @@ class AuthController extends Controller
 
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
+            
+            if ($user->status === 'Inactive') {
+                Auth::logout();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account is inactive. Please contact the administrator.'
+                ], 403);
+            }
+
             $user->load('roleModel');
 
             // Check if user has a role
