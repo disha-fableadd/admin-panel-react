@@ -57,6 +57,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Staff API
     Route::apiResource('staff', \App\Http\Controllers\Api\StaffController::class);
 
+    // Dashboard & Counts API
+    Route::get('/dashboard/counts', [\App\Http\Controllers\Api\DashboardController::class, 'dashboardCounts']);
+    Route::get('/clients-counts', [\App\Http\Controllers\Api\DashboardController::class, 'clientsCounts']);
+    Route::get('/staff-counts', [\App\Http\Controllers\Api\DashboardController::class, 'staffCounts']);
+    Route::get('/memberships-counts', [\App\Http\Controllers\Api\DashboardController::class, 'membershipCounts']);
+
     // Notifications API
     Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
