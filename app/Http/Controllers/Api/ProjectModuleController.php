@@ -12,7 +12,7 @@ class ProjectModuleController extends Controller
     {
         // in get api only active modules show
         $query = ProjectModule::with(['product', 'project']);
-        $query->where('status', 'Active');
+        // $query->where('status', 'Active');
         
         return response()->json([
             'success' => true,
