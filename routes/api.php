@@ -80,7 +80,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Transactions API
     Route::get('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
+    Route::post('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'store']);
     Route::get('/transactions/{id}', [\App\Http\Controllers\Api\TransactionController::class, 'show']);
+    Route::put('/transactions/{id}', [\App\Http\Controllers\Api\TransactionController::class, 'update']);
 
     // Reports API
     Route::get('/reports/summary', [\App\Http\Controllers\Api\ReportController::class, 'summary']);
