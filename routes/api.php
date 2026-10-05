@@ -63,6 +63,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/staff-counts', [\App\Http\Controllers\Api\DashboardController::class, 'staffCounts']);
     Route::get('/memberships-counts', [\App\Http\Controllers\Api\DashboardController::class, 'membershipCounts']);
 
+    // Razorpay API
+    Route::post('/razorpay/create-order', [\App\Http\Controllers\Api\RazorpayController::class, 'createOrder']);
+    Route::post('/razorpay/verify-payment', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
+
     // Notifications API
     Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
