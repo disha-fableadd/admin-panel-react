@@ -13,12 +13,18 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function clientsCounts()
+    public function clientsCounts(Request $request)
     {
-        $total = Client::count();
-        $active = Client::where('status', 'Active')->count();
-        $inactive = Client::where('status', 'Inactive')->count();
-        $newThisMonth = Client::where('created_at', '>=', Carbon::now()->startOfMonth())->count();
+        $productId = $request->product_id;
+        
+        $query = Client::when($productId, function ($q) use ($productId) {
+            $q->where('product_id', $productId);
+        });
+
+        $total = (clone $query)->count();
+        $active = (clone $query)->where('status', 'Active')->count();
+        $inactive = (clone $query)->where('status', 'Inactive')->count();
+        $newThisMonth = (clone $query)->where('created_at', '>=', Carbon::now()->startOfMonth())->count();
 
         return response()->json([
             'success' => true,
@@ -31,7 +37,7 @@ class DashboardController extends Controller
         ], 200);
     }
 
-    public function staffCounts()
+    public function staffCounts(Request $request)
     {
         // Exclude Super Admin if needed as done in index
         $query = User::whereHas('roleModel', function($q) {
@@ -54,12 +60,18 @@ class DashboardController extends Controller
         ], 200);
     }
 
-    public function membershipCounts()
+    public function membershipCounts(Request $request)
     {
-        $total = Membership::count();
-        $active = Membership::where('status', 'Active')->count();
-        $inactive = Membership::where('status', 'Inactive')->count();
-        $newThisMonth = Membership::where('created_at', '>=', Carbon::now()->startOfMonth())->count();
+        $productId = $request->product_id;
+
+        $query = Membership::when($productId, function ($q) use ($productId) {
+            $q->where('product_id', $productId);
+        });
+
+        $total = (clone $query)->count();
+        $active = (clone $query)->where('status', 'Active')->count();
+        $inactive = (clone $query)->where('status', 'Inactive')->count();
+        $newThisMonth = (clone $query)->where('created_at', '>=', Carbon::now()->startOfMonth())->count();
 
         return response()->json([
             'success' => true,
@@ -72,30 +84,47 @@ class DashboardController extends Controller
         ], 200);
     }
 
-    public function dashboardCounts()
+    public function dashboardCounts(Request $request)
     {
+        $productId = $request->product_id;
+
+        // Base queries with product filtering
+        $clientQuery = Client::when($productId, function ($q) use ($productId) {
+            $q->where('product_id', $productId);
+        });
+
+        $membershipQuery = Membership::when($productId, function ($q) use ($productId) {
+            $q->where('product_id', $productId);
+        });
+
+        $transactionQuery = Transaction::when($productId, function ($q) use ($productId) {
+            $q->whereHas('client', function ($q2) use ($productId) {
+                $q2->where('product_id', $productId);
+            });
+        });
+
         // Reports and Dashboard general counts
-        $totalClients = Client::count();
+        $totalClients = (clone $clientQuery)->count();
         
         $activeStaff = User::whereHas('roleModel', function($q) {
             $q->where('name', '!=', 'Super Admin');
         })->where('status', 'Active')->count();
 
-        $activeMemberships = Membership::where('status', 'Active')->count();
+        $activeMemberships = (clone $membershipQuery)->where('status', 'Active')->count();
 
         // Expiring Memberships (e.g., expiring in the next 30 days)
-        $expiringMemberships = Client::where('status', 'Active')
+        $expiringMemberships = (clone $clientQuery)->where('status', 'Active')
             ->whereNotNull('expiry_date')
             ->whereBetween('expiry_date', [Carbon::now(), Carbon::now()->addDays(30)])
             ->count();
 
         // Renewals (e.g., clients with 'Renewed' status or recent renewal)
-        $renewals = Client::where('status', 'Renewed')->count();
+        $renewals = (clone $clientQuery)->where('status', 'Renewed')->count();
 
         // Real transaction data
-        $totalTransactions      = Transaction::count();
-        $totalRevenue           = Transaction::where('status', 'captured')->sum('amount');
-        $failedPendingPayments  = Transaction::whereIn('status', ['failed', 'created', 'authorized'])->count();
+        $totalTransactions      = (clone $transactionQuery)->count();
+        $totalRevenue           = (clone $transactionQuery)->where('status', 'captured')->sum('amount');
+        $failedPendingPayments  = (clone $transactionQuery)->whereIn('status', ['failed', 'created', 'authorized'])->count();
 
         // --- NEW FEATURES ---
 
@@ -103,7 +132,8 @@ class DashboardController extends Controller
         $revenueOverview = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
-            $daySum = Transaction::where('status', 'captured')
+            $daySum = (clone $transactionQuery)
+                        ->where('status', 'captured')
                         ->whereDate('created_at', $date)
                         ->sum('amount');
             $revenueOverview[] = [
@@ -115,14 +145,14 @@ class DashboardController extends Controller
         // 2. Membership Status (Based on Client statuses, assuming total matches)
         $membershipStatus = [
             'total' => $totalClients,
-            'active' => Client::where('status', 'Active')->count(),
+            'active' => (clone $clientQuery)->where('status', 'Active')->count(),
             'expiring_soon' => $expiringMemberships,
-            'expired' => Client::where('status', 'Expired')->count(),
-            'cancelled' => Client::where('status', 'Inactive')->count(), // Or 'Cancelled' if it exists
+            'expired' => (clone $clientQuery)->where('status', 'Expired')->count(),
+            'cancelled' => (clone $clientQuery)->where('status', 'Inactive')->count(), // Or 'Cancelled' if it exists
         ];
 
         // 3. Upcoming Renewals (Latest 5 Expiring)
-        $upcomingRenewals = Client::with(['product', 'membership'])
+        $upcomingRenewals = (clone $clientQuery)->with(['product', 'membership'])
             ->where('status', 'Active')
             ->whereNotNull('expiry_date')
             ->where('expiry_date', '>=', Carbon::today())
