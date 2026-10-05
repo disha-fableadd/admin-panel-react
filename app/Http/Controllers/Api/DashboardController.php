@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Client;
 use App\Models\Membership;
+use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -90,24 +91,10 @@ class DashboardController extends Controller
         // Renewals (e.g., clients with 'Renewed' status or recent renewal)
         $renewals = Client::where('status', 'Renewed')->count();
 
-        // For Total Transactions, Total Revenue, Failed Payments we return 0 if no clear model exists,
-        // or calculate from client amount if they represent revenue.
-        // Let's sum client amounts for total revenue as a placeholder if there are no real transactions
-        $clientsAmounts = Client::pluck('amount');
-        $totalRevenue = 0;
-        foreach ($clientsAmounts as $amountArray) {
-            if (is_array($amountArray)) {
-                foreach ($amountArray as $amt) {
-                    $totalRevenue += (float)$amt;
-                }
-            } else if (is_numeric($amountArray)) {
-                $totalRevenue += (float)$amountArray;
-            }
-        }
-
-        // Mock placeholders if no models exist for transactions
-        $totalTransactions = 0; 
-        $failedPendingPayments = 0;
+        // Real transaction data
+        $totalTransactions      = Transaction::count();
+        $totalRevenue           = Transaction::where('status', 'captured')->sum('amount');
+        $failedPendingPayments  = Transaction::whereIn('status', ['failed', 'created', 'authorized'])->count();
 
         return response()->json([
             'success' => true,
