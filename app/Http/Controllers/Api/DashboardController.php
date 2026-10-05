@@ -123,8 +123,8 @@ class DashboardController extends Controller
 
         // Real transaction data
         $totalTransactions      = (clone $transactionQuery)->count();
-        $totalRevenue           = (clone $transactionQuery)->where('status', 'captured')->sum('amount');
-        $failedPendingPayments  = (clone $transactionQuery)->whereIn('status', ['failed', 'created', 'authorized'])->count();
+        $totalRevenue           = (clone $transactionQuery)->where('status', 'paid')->sum('amount');
+        $failedPendingPayments  = (clone $transactionQuery)->where('status', 'pending')->count();
 
         // --- NEW FEATURES ---
 
@@ -133,7 +133,7 @@ class DashboardController extends Controller
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
             $daySum = (clone $transactionQuery)
-                        ->where('status', 'captured')
+                        ->where('status', 'paid')
                         ->whereDate('created_at', $date)
                         ->sum('amount');
             $revenueOverview[] = [
