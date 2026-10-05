@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Membership;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -27,7 +28,7 @@ class ClientController extends Controller
             'mobile' => 'nullable|string|max:20',
             'product_id' => 'required|integer|exists:products,id',
             'membership_id' => 'required|integer|exists:memberships,id',
-            'status' => 'required|string|in:Active,Inactive',
+            'status' => 'nullable|string|in:Active,Inactive,Pending',
             'assign_module' => 'nullable|array',
             'assign_module.*' => 'integer|exists:project_modules,id',
             
@@ -39,9 +40,26 @@ class ClientController extends Controller
             'start_date' => 'nullable|date',
             'expiry_date' => 'nullable|date',
             'location' => 'nullable|string|max:255',
+
+            // Optional Payment details
+            'payment_type' => 'nullable|string',
+            'payment_amount' => 'nullable|numeric',
         ]);
 
-        // Billing info is now taken directly from the request manually
+        // Default status based on payment_type if status wasn't explicitly provided
+        if (!empty($validated['payment_type'])) {
+            $paymentType = strtolower($validated['payment_type']);
+            if (!isset($validated['status'])) {
+                $validated['status'] = ($paymentType === 'cash') ? 'Active' : 'Inactive';
+            }
+        } else {
+            $validated['status'] = $validated['status'] ?? 'Active';
+        }
+
+        // Extract payment fields before creating client record
+        $paymentType = isset($validated['payment_type']) ? strtolower($validated['payment_type']) : null;
+        $paymentAmount = $validated['payment_amount'] ?? null;
+        unset($validated['payment_type'], $validated['payment_amount']);
 
         // Create the client
         $client = Client::create($validated);
@@ -49,6 +67,29 @@ class ClientController extends Controller
         // Assign modules to the pivot table
         if (!empty($validated['assign_module'])) {
             $client->projectModules()->sync($validated['assign_module']);
+        }
+
+        // If payment_type is provided, automatically record the transaction
+        if ($paymentType) {
+            // Determine transaction amount if not explicitly given
+            if ($paymentAmount === null) {
+                if (!empty($client->amount) && is_array($client->amount)) {
+                    $paymentAmount = (float) (reset($client->amount) ?: 0);
+                } else {
+                    $paymentAmount = 0;
+                }
+            }
+
+            Transaction::create([
+                'user_id'        => auth()->id(),
+                'client_id'      => $client->id,
+                'amount'         => (float) $paymentAmount,
+                'currency'       => 'INR',
+                'status'         => ($paymentType === 'cash') ? 'paid' : 'pending',
+                'payment_type'   => $paymentType,
+                'payment_method' => ($paymentType === 'cash') ? 'Cash' : 'Online',
+                'description'    => 'Initial purchase for ' . $client->client_name . ' (' . ucfirst($paymentType) . ')',
+            ]);
         }
 
         $this->notifyAllUsers('New Client Created', 'A new client was added.');
