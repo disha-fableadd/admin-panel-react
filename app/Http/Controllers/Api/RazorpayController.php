@@ -54,7 +54,7 @@ class RazorpayController extends Controller
                 'razorpay_order_id' => $orderData['id'],
                 'amount' => $request->amount,
                 'currency' => $orderData['currency'],
-                'status' => 'created',
+                'status' => 'pending',
                 'description' => $request->description,
             ]);
 
@@ -100,7 +100,7 @@ class RazorpayController extends Controller
                 $transaction->update([
                     'razorpay_payment_id' => $request->razorpay_payment_id,
                     'razorpay_signature' => $request->razorpay_signature,
-                    'status' => 'captured',
+                    'status' => 'paid',
                 ]);
             } else {
                 // If order was not saved during createOrder for some reason, create it now
@@ -111,7 +111,7 @@ class RazorpayController extends Controller
                     'razorpay_signature' => $request->razorpay_signature,
                     'amount' => 0, // Would need fetching from razorpay API to get accurate amount
                     'currency' => 'INR',
-                    'status' => 'captured',
+                    'status' => 'paid',
                     'description' => 'Payment recorded on verification fallback'
                 ]);
             }
@@ -231,9 +231,9 @@ class RazorpayController extends Controller
             
             if ($paymentLinkId) {
                 $transaction = Transaction::where('payment_link_id', $paymentLinkId)->first();
-                if ($transaction && $transaction->status !== 'captured') {
+                if ($transaction && $transaction->status !== 'paid') {
                     $transaction->update([
-                        'status' => 'captured',
+                        'status' => 'paid',
                         'razorpay_payment_id' => $paymentId,
                     ]);
 
@@ -254,9 +254,9 @@ class RazorpayController extends Controller
             
             if ($orderId) {
                 $transaction = Transaction::where('razorpay_order_id', $orderId)->first();
-                if ($transaction && $transaction->status !== 'captured') {
+                if ($transaction && $transaction->status !== 'paid') {
                     $transaction->update([
-                        'status' => 'captured',
+                        'status' => 'paid',
                         'razorpay_payment_id' => $paymentId,
                     ]);
                 }
