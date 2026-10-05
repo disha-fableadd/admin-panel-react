@@ -57,4 +57,12 @@ class Membership extends Model
     {
         return $this->belongsTo(ProjectModule::class, 'project_modules_id');
     }
+
+    /**
+     * Get all clients subscribed to this membership plan.
+     */
+    public function clients()
+    {
+        return $this->hasMany(Client::class);
+    }
 }
