@@ -171,15 +171,8 @@ class SetupController extends Controller
                 $module = \App\Models\ProjectModule::find($item);
                 
                 if ($module) {
+                    // Reusing existing module, do not modify its client_id column
                     $moduleIds[] = $module->id;
-                    
-                    // Add client_id to JSON if not present
-                    $existingClients = $module->client_id ?? [];
-                    if (!is_array($existingClients)) $existingClients = [];
-                    if (!in_array($client->id, $existingClients)) {
-                        $existingClients[] = $client->id;
-                        $module->update(['client_id' => array_values($existingClients)]);
-                    }
                 }
             } else {
                 // It's a string name, find or create custom module
@@ -189,6 +182,7 @@ class SetupController extends Controller
                     ->first();
 
                 if (!$module) {
+                    // Newly created custom module specifically for this client -> add client_id
                     $module = \App\Models\ProjectModule::create([
                         'name' => $item,
                         'product_id' => $client->product_id,
@@ -196,14 +190,9 @@ class SetupController extends Controller
                         'status' => 'Active',
                         'client_id' => [$client->id],
                     ]);
-                } else {
-                    $existingClients = $module->client_id ?? [];
-                    if (!is_array($existingClients)) $existingClients = [];
-                    if (!in_array($client->id, $existingClients)) {
-                        $existingClients[] = $client->id;
-                        $module->update(['client_id' => array_values($existingClients)]);
-                    }
-                }
+                } 
+                // If it already existed, we just reuse it and don't touch the client_id array.
+                
                 $moduleIds[] = $module->id;
             }
         }
