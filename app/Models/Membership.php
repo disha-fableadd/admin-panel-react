@@ -24,10 +24,13 @@ class Membership extends Model
         'notes',
     ];
 
+    protected $appends = ['project_modules_data'];
+
     protected $casts = [
         'is_custom_billing' => 'boolean',
         'amount' => 'array',
         'renewal_amount' => 'array',
+        'project_modules_id' => 'array',
         'max_user' => 'integer',
         'max_branch' => 'integer',
     ];
@@ -51,11 +54,13 @@ class Membership extends Model
     // billing relation removed as it is handled manually now
 
     /**
-     * Get the project module associated with the membership.
+     * Get the project modules details using the JSON array of IDs.
      */
-    public function projectModule()
+    public function getProjectModulesDataAttribute()
     {
-        return $this->belongsTo(ProjectModule::class, 'project_modules_id');
+        $ids = $this->project_modules_id ?? [];
+        if (empty($ids)) return [];
+        return ProjectModule::whereIn('id', $ids)->get();
     }
 
     /**
