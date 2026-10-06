@@ -74,8 +74,9 @@ class ClientController extends Controller
         if ($paymentType) {
             // Determine transaction amount if not explicitly given
             if ($paymentAmount === null) {
-                if (!empty($client->amount) && is_array($client->amount)) {
-                    $paymentAmount = (float) (reset($client->amount) ?: 0);
+                $clientAmount = $client->amount;
+                if (!empty($clientAmount) && is_array($clientAmount)) {
+                    $paymentAmount = (float) (reset($clientAmount) ?: 0);
                 } else {
                     $paymentAmount = 0;
                 }
