@@ -20,9 +20,10 @@ class ProjectModule extends Model
 
     protected $casts = [
         'client_id' => 'array',
+        'project_id' => 'array',
     ];
 
-    protected $appends = ['clients'];
+    protected $appends = ['clients', 'projects'];
 
     public function getClientsAttribute()
     {
@@ -40,11 +41,13 @@ class ProjectModule extends Model
         return $this->belongsTo(Product::class);
     }
 
-    /**
-     * Get the project that owns the module.
-     */
-    public function project()
+    public function getProjectsAttribute()
     {
-        return $this->belongsTo(Project::class);
+        if (!empty($this->project_id) && is_array($this->project_id)) {
+            return \App\Models\Project::whereIn('id', $this->project_id)->get();
+        }
+        return [];
     }
+
+  
 }

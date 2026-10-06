@@ -178,7 +178,7 @@ class SetupController extends Controller
                 // It's a string name, find or create custom module
                 $module = \App\Models\ProjectModule::where('name', $item)
                     ->where('product_id', $client->product_id)
-                    ->where('project_id', $client->project_id)
+                    ->where('project_id', 'like', '%"'.$client->project_id.'"%')
                     ->first();
 
                 if (!$module) {
@@ -186,7 +186,7 @@ class SetupController extends Controller
                     $module = \App\Models\ProjectModule::create([
                         'name' => $item,
                         'product_id' => $client->product_id,
-                        'project_id' => $client->project_id,
+                        'project_id' => [$client->project_id],
                         'status' => 'Active',
                         'client_id' => [$client->id],
                     ]);
