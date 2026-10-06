@@ -181,20 +181,12 @@ class SetupController extends Controller
                     ->first();
 
                 if ($module) {
-                    // Module exists globally for this product. Just merge the project_id and client_id if they aren't there.
+                    // Module exists globally for this product. Just merge the project_id. 
+                    // Do NOT merge client_id for already existing modules (reusable) as per user rules.
                     $existingProjects = $module->project_id ?? [];
                     if (!in_array($client->project_id, $existingProjects)) {
                         $existingProjects[] = $client->project_id;
                         $module->project_id = array_values(array_unique($existingProjects));
-                    }
-
-                    $existingClients = $module->client_id ?? [];
-                    if (!in_array($client->id, $existingClients)) {
-                        $existingClients[] = $client->id;
-                        $module->client_id = array_values(array_unique($existingClients));
-                    }
-
-                    if ($module->isDirty()) {
                         $module->save();
                     }
                 } else {
