@@ -156,24 +156,23 @@ class DashboardController extends Controller
             'cancelled' => (clone $clientQuery)->where('status', 'Inactive')->count(), // Or 'Cancelled' if it exists
         ];
 
-        // 3. Upcoming Renewals (Latest 5 Expiring)
-        $upcomingRenewals = (clone $clientQuery)->with(['product', 'membership'])
-            ->where('status', 'Active')
-            ->whereNotNull('expiry_date')
-            ->where('expiry_date', '>=', Carbon::today())
-            ->orderBy('expiry_date', 'asc')
+        // 3. Recent/Upcoming Renewals (Latest 5 from renewals table)
+        $upcomingRenewals = (clone $renewalQuery)->with(['client.product', 'client.membership'])
+            ->orderBy('renewal_date', 'desc')
             ->take(5)
             ->get()
-            ->map(function ($client) {
+            ->map(function ($renewal) {
+                $client = $renewal->client;
+                $endDate = $renewal->new_end_date ?? $renewal->previous_end_date;
                 return [
-                    'id' => $client->id,
-                    'client_name' => $client->client_name,
-                    'brand_name' => $client->brand_name,
-                    'product' => $client->product ? $client->product->name : null,
-                    'membership' => $client->membership ? $client->membership->plan_name : null,
-                    'end_date' => Carbon::parse($client->expiry_date)->format('d M Y'),
-                    'days_left' => Carbon::parse($client->expiry_date)->diffInDays(Carbon::today()),
-                    'status' => 'Expiring'
+                    'id' => $renewal->id,
+                    'client_name' => $client ? $client->client_name : null,
+                    'brand_name' => $client ? $client->brand_name : null,
+                    'product' => $client && $client->product ? $client->product->name : null,
+                    'membership' => $client && $client->membership ? $client->membership->plan_name : null,
+                    'end_date' => $endDate ? Carbon::parse($endDate)->format('d M Y') : null,
+                    'days_left' => $endDate ? Carbon::parse($endDate)->diffInDays(Carbon::today()) : 0,
+                    'status' => $renewal->renewal_status ?? 'Renewed'
                 ];
             });
 
