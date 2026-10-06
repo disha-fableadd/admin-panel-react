@@ -54,13 +54,22 @@ class ProjectModuleController extends Controller
                                        ->first();
 
         if ($existingModule) {
+            $existingProjects = $existingModule->project_id ?? [];
+            $newProjects = $validated['project_id'] ?? [];
+            
+            // Check if the project already exists for this module
+            if (!empty(array_intersect($newProjects, $existingProjects))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This module already exists for the selected project.'
+                ], 400);
+            }
+
             $existingClients = $existingModule->client_id ?? [];
             $newClients = $validated['client_id'] ?? [];
             $mergedClients = array_unique(array_merge($existingClients, $newClients));
             $validated['client_id'] = array_values($mergedClients);
 
-            $existingProjects = $existingModule->project_id ?? [];
-            $newProjects = $validated['project_id'] ?? [];
             $mergedProjects = array_unique(array_merge($existingProjects, $newProjects));
             $validated['project_id'] = array_values($mergedProjects);
             
