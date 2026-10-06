@@ -178,10 +178,26 @@ class SetupController extends Controller
                 // It's a string name, find or create custom module
                 $module = \App\Models\ProjectModule::where('name', $item)
                     ->where('product_id', $client->product_id)
-                    ->where('project_id', 'like', '%"'.$client->project_id.'"%')
                     ->first();
 
-                if (!$module) {
+                if ($module) {
+                    // Module exists globally for this product. Just merge the project_id and client_id if they aren't there.
+                    $existingProjects = $module->project_id ?? [];
+                    if (!in_array($client->project_id, $existingProjects)) {
+                        $existingProjects[] = $client->project_id;
+                        $module->project_id = array_values(array_unique($existingProjects));
+                    }
+
+                    $existingClients = $module->client_id ?? [];
+                    if (!in_array($client->id, $existingClients)) {
+                        $existingClients[] = $client->id;
+                        $module->client_id = array_values(array_unique($existingClients));
+                    }
+
+                    if ($module->isDirty()) {
+                        $module->save();
+                    }
+                } else {
                     // Newly created custom module specifically for this client -> add client_id
                     $module = \App\Models\ProjectModule::create([
                         'name' => $item,
@@ -190,7 +206,7 @@ class SetupController extends Controller
                         'status' => 'Active',
                         'client_id' => [$client->id],
                     ]);
-                } 
+                }
                 // If it already existed, we just reuse it and don't touch the client_id array.
                 
                 $moduleIds[] = $module->id;
