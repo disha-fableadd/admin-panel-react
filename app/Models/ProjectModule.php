@@ -13,9 +13,24 @@ class ProjectModule extends Model
         'name',
         'product_id',
         'project_id',
+        'client_id',
         'status',
         'description',
     ];
+
+    protected $casts = [
+        'client_id' => 'array',
+    ];
+
+    protected $appends = ['clients'];
+
+    public function getClientsAttribute()
+    {
+        if (!empty($this->client_id) && is_array($this->client_id)) {
+            return \App\Models\Client::whereIn('id', $this->client_id)->get();
+        }
+        return [];
+    }
 
     /**
      * Get the product that owns the module.

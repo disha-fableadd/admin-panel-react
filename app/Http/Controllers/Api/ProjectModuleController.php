@@ -26,6 +26,8 @@ class ProjectModuleController extends Controller
             'name' => 'required|string|max:255',
             'product_id' => 'required|integer',
             'project_id' => 'nullable|integer',
+            'client_id' => 'nullable|array',
+            'client_id.*' => 'integer',
             'status' => 'required|in:Active,Inactive',
             'description' => 'nullable|string',
         ]);
@@ -57,6 +59,8 @@ class ProjectModuleController extends Controller
             'name' => 'required|string|max:255',
             'product_id' => 'required|integer',
             'project_id' => 'nullable|integer',
+            'client_id' => 'nullable|array',
+            'client_id.*' => 'integer',
             'status' => 'required|in:Active,Inactive',
             'description' => 'nullable|string',
         ]);
