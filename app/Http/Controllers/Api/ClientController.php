@@ -12,7 +12,7 @@ class ClientController extends Controller
 {
     public function index()
     {
-        $clients = Client::with(['product', 'membership.project', 'projectModules', 'setup'])->get();
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup'])->get();
         return response()->json([
             'success' => true,
             'data' => $clients
@@ -27,6 +27,7 @@ class ClientController extends Controller
             'work_email' => 'nullable|email|max:255',
             'mobile' => 'nullable|string|max:20',
             'product_id' => 'required|integer|exists:products,id',
+            'project_id' => 'nullable|integer|exists:projects,id',
             'membership_id' => 'required|integer|exists:memberships,id',
             'status' => 'nullable|string|in:Active,Inactive,Pending',
             'assign_module' => 'nullable|array',
@@ -97,13 +98,13 @@ class ClientController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Client created successfully.',
-            'data' => $client->load('projectModules')
+            'data' => $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup'])
         ], 201);
     }
 
     public function show(Client $client)
     {
-        $client->load(['product', 'membership.project', 'projectModules', 'setup']);
+        $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup']);
         return response()->json([
             'success' => true,
             'data' => $client
@@ -118,6 +119,7 @@ class ClientController extends Controller
             'work_email' => 'nullable|email|max:255',
             'mobile' => 'nullable|string|max:20',
             'product_id' => 'required|integer|exists:products,id',
+            'project_id' => 'nullable|integer|exists:projects,id',
             'membership_id' => 'required|integer|exists:memberships,id',
             'status' => 'required|string|in:Active,Inactive',
             'assign_module' => 'nullable|array',
@@ -144,7 +146,7 @@ class ClientController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Client updated successfully.',
-            'data' => $client->load('projectModules')
+            'data' => $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup'])
         ]);
     }
 

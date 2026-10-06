@@ -23,4 +23,20 @@ class Project extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    /**
+     * Get all clients associated with the project.
+     */
+    public function clients()
+    {
+        return $this->hasMany(Client::class);
+    }
+
+    /**
+     * Get all modules associated with the project.
+     */
+    public function projectModules()
+    {
+        return $this->hasMany(ProjectModule::class);
+    }
 }

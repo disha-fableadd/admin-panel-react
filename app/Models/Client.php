@@ -15,6 +15,7 @@ class Client extends Model
         'work_email',
         'mobile',
         'product_id',
+        'project_id',
         'membership_id',
         'status',
         'is_custom_billing',
@@ -41,6 +42,11 @@ class Client extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function membership()
