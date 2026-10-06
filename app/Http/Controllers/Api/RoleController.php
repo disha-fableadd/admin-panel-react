@@ -122,6 +122,14 @@ class RoleController extends Controller
             ], 403);
         }
 
+        $hasUsers = \App\Models\User::where('role_id', $id)->exists();
+        if ($hasUsers) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this role because it is assigned to one or more users. Please reassign those users first.'
+            ], 400);
+        }
+
         $role->delete();
 
         return response()->json([

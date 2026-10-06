@@ -161,6 +161,19 @@ class ClientController extends Controller
 
     public function destroy(Client $client)
     {
+        $id = $client->id;
+
+        $hasSetup = \App\Models\Setup::where('client_id', $id)->exists();
+        $hasTransactions = \App\Models\Transaction::where('client_id', $id)->exists();
+        $hasRenewals = \App\Models\Renewal::where('client_id', $id)->exists();
+
+        if ($hasSetup || $hasTransactions || $hasRenewals) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this client because they have existing setups, transactions, or renewals. Please delete those records first.'
+            ], 400);
+        }
+
         $client->delete();
         return response()->json([
             'success' => true,

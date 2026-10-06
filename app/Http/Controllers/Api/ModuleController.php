@@ -115,6 +115,14 @@ class ModuleController extends Controller
             ], 404);
         }
 
+        $hasPermissions = \App\Models\UserPermission::where('module_id', $id)->exists();
+        if ($hasPermissions) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this module because it is currently assigned in user permissions. Please remove the permissions first.'
+            ], 400);
+        }
+
         $module->delete();
 
         return response()->json([

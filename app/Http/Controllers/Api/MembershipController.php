@@ -149,9 +149,6 @@ class MembershipController extends Controller
         ], 200);
     }
 
-    /**
-     * Remove the specified membership from storage.
-     */
     public function destroy($id)
     {
         $membership = Membership::find($id);
@@ -161,6 +158,15 @@ class MembershipController extends Controller
                 'success' => false,
                 'message' => 'Membership plan not found.'
             ], 404);
+        }
+
+        $hasClients = \App\Models\Client::where('membership_id', $id)->exists();
+
+        if ($hasClients) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this membership plan because it is assigned to existing clients. Please reassign or delete those clients first.'
+            ], 400);
         }
 
         $membership->delete();
