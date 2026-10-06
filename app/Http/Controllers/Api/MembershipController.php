@@ -21,7 +21,7 @@ class MembershipController extends Controller
 
     public function index(Request $request)
     {
-        $query = Membership::with(['product', 'project', 'projectModule']);
+        $query = Membership::with(['product', 'project']);
 
         if ($request->has('product_id') && !empty($request->product_id)) {
             $query->where('product_id', $request->product_id);
@@ -60,7 +60,8 @@ class MembershipController extends Controller
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'project_id' => 'required|exists:projects,id',
-            'project_modules_id' => 'required|exists:project_modules,id',
+            'project_modules_id' => 'required|array',
+            'project_modules_id.*' => 'integer',
             'is_custom_billing' => 'boolean',
             'billing_title' => 'nullable|string|max:255',
             'plan_name' => 'required|string|max:255',
@@ -77,7 +78,7 @@ class MembershipController extends Controller
         }
 
         $membership = Membership::create($validated);
-        $membership->load(['product', 'project', 'projectModule']);
+        $membership->load(['product', 'project']);
 
         $this->notifyAllUsers('New Membership Created', 'A new membership plan was added.');
 
@@ -93,7 +94,7 @@ class MembershipController extends Controller
      */
     public function show($id)
     {
-        $membership = Membership::with(['product', 'project', 'projectModule'])->find($id);
+        $membership = Membership::with(['product', 'project'])->find($id);
 
         if (!$membership) {
             return response()->json([
@@ -125,7 +126,8 @@ class MembershipController extends Controller
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'project_id' => 'required|exists:projects,id',
-            'project_modules_id' => 'required|exists:project_modules,id',
+            'project_modules_id' => 'required|array',
+            'project_modules_id.*' => 'integer',
             'is_custom_billing' => 'boolean',
             'billing_title' => 'nullable|string|max:255',
             'plan_name' => 'required|string|max:255',
@@ -138,7 +140,7 @@ class MembershipController extends Controller
         ]);
 
         $membership->update($validated);
-        $membership->load(['product', 'project', 'projectModule']);
+        $membership->load(['product', 'project']);
 
         return response()->json([
             'success' => true,
