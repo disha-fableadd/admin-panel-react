@@ -136,6 +136,17 @@ class ProjectController extends Controller
             ], 404);
         }
 
+        $hasModules = \App\Models\ProjectModule::where('project_id', $id)->exists();
+        $hasMemberships = \App\Models\Membership::where('project_id', $id)->exists();
+        $hasClients = \App\Models\Client::where('project_id', $id)->exists();
+
+        if ($hasModules || $hasMemberships || $hasClients) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this project because it is assigned to existing modules, memberships, or clients. Please delete them first.'
+            ], 400);
+        }
+
         $project->delete();
 
         return response()->json([

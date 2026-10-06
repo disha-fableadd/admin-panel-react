@@ -103,6 +103,20 @@ class ProjectModuleController extends Controller
 
     public function destroy(ProjectModule $projectModule)
     {
+        $id = $projectModule->id;
+
+        // Check pivot table
+        $hasClients = \Illuminate\Support\Facades\DB::table('client_project_modules')->where('project_module_id', $id)->exists();
+        // Also check if any membership references this ID in its JSON array
+        $hasMemberships = \App\Models\Membership::where('project_modules_id', 'like', '%"'.$id.'"%')->exists();
+
+        if ($hasClients || $hasMemberships) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this module because it is assigned to existing clients or memberships. Please remove the assignment first.'
+            ], 400);
+        }
+
         $projectModule->delete();
 
         return response()->json([

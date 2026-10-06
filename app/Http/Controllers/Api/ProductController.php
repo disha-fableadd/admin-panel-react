@@ -132,6 +132,18 @@ class ProductController extends Controller
             ], 404);
         }
 
+        $hasProjects = \App\Models\Project::where('product_id', $id)->exists();
+        $hasModules = \App\Models\ProjectModule::where('product_id', $id)->exists();
+        $hasMemberships = \App\Models\Membership::where('product_id', $id)->exists();
+        $hasClients = \App\Models\Client::where('product_id', $id)->exists();
+
+        if ($hasProjects || $hasModules || $hasMemberships || $hasClients) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete this product because it is assigned to existing projects, modules, memberships, or clients. Please delete them first.'
+            ], 400);
+        }
+
         $product->delete();
 
         return response()->json([
