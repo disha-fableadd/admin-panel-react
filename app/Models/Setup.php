@@ -11,12 +11,29 @@ class Setup extends Model
 
     protected $fillable = [
         'client_id',
+        'client_name',
+        'product',
         'domain',
-        'db_credential',
+        'database_name',
+        'db_host',
+        'db_username',
+        'db_password',
+        'db_port',
+        'ssl_enabled',
+        'status',
+        'version',
+        'plan_name',
+        'billing_cycle',
+        'amount',
+        'renewal_amount',
+        'assigned_modules',
     ];
 
     protected $casts = [
-        'db_credential' => 'array',
+        'ssl_enabled' => 'boolean',
+        'assigned_modules' => 'array',
+        'amount' => 'decimal:2',
+        'renewal_amount' => 'decimal:2',
     ];
 
     public function client()
