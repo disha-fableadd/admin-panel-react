@@ -18,7 +18,7 @@ class SetupController extends Controller
 
     public function index()
     {
-        $setups = Setup::with(['client.product', 'client.membership.project'])->latest()->get();
+        $setups = Setup::with(['client.product', 'client.membership.project', 'client.projectModules'])->latest()->get();
         return response()->json([
             'success' => true,
             'data' => $setups
@@ -70,18 +70,22 @@ class SetupController extends Controller
 
         $setup = Setup::create($setupData);
 
+        if (!empty($validated['assignedModules'])) {
+            $this->assignModulesToClient($validated['clientId'], $validated['assignedModules']);
+        }
+
         $this->notifyAllUsers('New Setup Created', 'A new setup was added.');
 
         return response()->json([
             'success' => true,
             'message' => 'Setup created successfully.',
-            'data' => $setup
+            'data' => $setup->load(['client.product', 'client.membership.project', 'client.projectModules'])
         ], 201);
     }
 
     public function show(Setup $setup)
     {
-        $setup->load(['client.product', 'client.membership.project']);
+        $setup->load(['client.product', 'client.membership.project', 'client.projectModules']);
         return response()->json([
             'success' => true,
             'data' => $setup
@@ -133,10 +137,14 @@ class SetupController extends Controller
 
         $setup->update($setupData);
 
+        if (!empty($validated['assignedModules'])) {
+            $this->assignModulesToClient($validated['clientId'], $validated['assignedModules']);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Setup updated successfully.',
-            'data' => $setup
+            'data' => $setup->load(['client.product', 'client.membership.project', 'client.projectModules'])
         ]);
     }
 
@@ -147,5 +155,45 @@ class SetupController extends Controller
             'success' => true,
             'message' => 'Setup deleted successfully.'
         ]);
+    }
+
+    private function assignModulesToClient($clientId, $moduleNames)
+    {
+        if (empty($moduleNames)) return;
+
+        $client = \App\Models\Client::find($clientId);
+        if (!$client) return;
+
+        $moduleIds = [];
+        foreach ($moduleNames as $name) {
+            // Find existing module by name, product_id, and project_id
+            $module = \App\Models\ProjectModule::where('name', $name)
+                ->where('product_id', $client->product_id)
+                ->where('project_id', $client->project_id)
+                ->first();
+
+            if (!$module) {
+                // Create custom module
+                $module = \App\Models\ProjectModule::create([
+                    'name' => $name,
+                    'product_id' => $client->product_id,
+                    'project_id' => $client->project_id,
+                    'status' => 'Active',
+                    'client_id' => [$client->id],
+                ]);
+            } else {
+                // If it exists, append this client to the module's client_id array if not present
+                $existingClients = $module->client_id ?? [];
+                if (!in_array($client->id, $existingClients)) {
+                    $existingClients[] = $client->id;
+                    $module->update(['client_id' => array_values($existingClients)]);
+                }
+            }
+            $moduleIds[] = $module->id;
+        }
+
+        // Attach the modules to the client in client_project_modules pivot table 
+        // without detaching any existing modules they might already have
+        $client->projectModules()->syncWithoutDetaching($moduleIds);
     }
 }
