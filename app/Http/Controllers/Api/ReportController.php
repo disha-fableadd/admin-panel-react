@@ -15,60 +15,82 @@ class ReportController extends Controller
 {
     /**
      * Full Reports page data (summary counts + revenue overview + membership status + renewal analysis).
+     * Optional filter: product_id
      */
     public function summary(Request $request)
     {
-        $period = $request->get('period', 'month'); // daily, weekly, monthly
+        $period    = $request->get('period', 'month'); // daily, weekly, monthly
+        $productId = $request->get('product_id');
+
+        // Base query for clients
+        $clientQuery = Client::query();
+        if ($productId) {
+            $clientQuery->where('product_id', $productId);
+        }
+
+        // Base query for memberships
+        $membershipQuery = Membership::query();
+        if ($productId) {
+            $membershipQuery->where('product_id', $productId);
+        }
+
+        // Base query for transactions
+        $transactionQuery = Transaction::query();
+        if ($productId) {
+            $transactionQuery->whereHas('client', function ($q) use ($productId) {
+                $q->where('product_id', $productId);
+            });
+        }
 
         // --- Summary Counts ---
-        $totalClients = Client::count();
+        $totalClients = (clone $clientQuery)->count();
 
         $activeStaff = User::whereHas('roleModel', function ($q) {
             $q->where('name', '!=', 'Super Admin');
         })->where('status', 'Active')->count();
 
-        $activeMemberships = Membership::where('status', 'Active')->count();
+        $activeMemberships = (clone $membershipQuery)->where('status', 'Active')->count();
 
-        $expiringMemberships = Client::where('status', 'Active')
+        $expiringMemberships = (clone $clientQuery)->where('status', 'Active')
             ->whereNotNull('expiry_date')
             ->whereBetween('expiry_date', [Carbon::now(), Carbon::now()->addDays(30)])
             ->count();
 
-        $renewals = Client::where('status', 'Renewed')->count();
+        $renewals = (clone $clientQuery)->where('status', 'Renewed')->count();
 
-        $totalTransactions = Transaction::count();
-        $totalRevenue = Transaction::where('status', 'captured')->sum('amount');
-        $failedPendingPayments = Transaction::whereIn('status', ['failed', 'created', 'authorized'])->count();
+        $totalTransactions     = (clone $transactionQuery)->count();
+        $totalRevenue          = (clone $transactionQuery)->whereIn('status', ['captured', 'paid'])->sum('amount');
+        $failedPendingPayments = (clone $transactionQuery)->whereIn('status', ['failed', 'created', 'authorized', 'pending'])->count();
 
         // --- Revenue Overview by period ---
-        $revenueOverview = $this->getRevenueOverview($period);
+        $revenueOverview = $this->getRevenueOverview($period, $productId);
 
         // Transaction status breakdown
-        $successful = Transaction::where('status', 'captured')->count();
-        $pending    = Transaction::whereIn('status', ['created', 'authorized'])->count();
-        $failed     = Transaction::where('status', 'failed')->count();
-        $refunded   = Transaction::where('status', 'refunded')->sum('amount');
+        $successful = (clone $transactionQuery)->whereIn('status', ['captured', 'paid'])->count();
+        $pending    = (clone $transactionQuery)->whereIn('status', ['created', 'authorized', 'pending'])->count();
+        $failed     = (clone $transactionQuery)->where('status', 'failed')->count();
+        $refunded   = (clone $transactionQuery)->where('status', 'refunded')->sum('amount');
 
         // --- Membership Status Distribution ---
         $membershipStatus = [
-            'active'         => Client::where('status', 'Active')->count(),
-            'expiring_soon'  => Client::where('status', 'Active')
+            'active'         => (clone $clientQuery)->where('status', 'Active')->count(),
+            'expiring_soon'  => (clone $clientQuery)->where('status', 'Active')
                 ->whereNotNull('expiry_date')
                 ->whereBetween('expiry_date', [Carbon::now(), Carbon::now()->addDays(30)])
                 ->count(),
-            'expired'        => Client::where('status', 'Expired')->count(),
-            'cancelled'      => Client::where('status', 'Cancelled')->count(),
+            'expired'        => (clone $clientQuery)->where('status', 'Expired')->count(),
+            'cancelled'      => (clone $clientQuery)->where('status', 'Cancelled')->count(),
         ];
         $membershipTotal = array_sum($membershipStatus);
 
         // --- Renewal Analysis ---
-        $totalRenewals  = Client::where('status', 'Renewed')->count();
-        $upcoming       = Client::where('status', 'Active')
+        $totalRenewals  = (clone $clientQuery)->where('status', 'Renewed')->count();
+        $upcoming       = (clone $clientQuery)->where('status', 'Active')
             ->whereNotNull('expiry_date')
             ->whereBetween('expiry_date', [Carbon::now(), Carbon::now()->addDays(30)])
             ->count();
-        $renewed        = Client::where('status', 'Renewed')->count();
-        $notRenewed     = Client::where('status', 'Expired')->count();
+        $renewed        = (clone $clientQuery)->where('status', 'Renewed')->count();
+        $notRenewed     = (clone $clientQuery)->where('status', 'Expired')->count();
         $renewalRate    = ($totalRenewals + $notRenewed) > 0
             ? round(($renewed / ($renewed + $notRenewed)) * 100, 1)
             : 0;
@@ -216,6 +238,13 @@ class ReportController extends Controller
             $query->where('payment_method', $method);
         }
 
+        $productId = $request->get('product_id', '');
+        if ($productId) {
+            $query->whereHas('client', function ($q) use ($productId) {
+                $q->where('product_id', $productId);
+            });
+        }
+
         $total       = $query->count();
         $transactions = $query->offset(($page - 1) * $limit)->limit($limit)->get();
 
@@ -256,7 +285,7 @@ class ReportController extends Controller
     /**
      * Helper: build chart data for revenue overview (daily/weekly/monthly).
      */
-    private function getRevenueOverview(string $period): array
+    private function getRevenueOverview(string $period, $productId = null): array
     {
         switch ($period) {
             case 'daily':
@@ -264,9 +293,16 @@ class ReportController extends Controller
                 $data = [];
                 for ($i = 6; $i >= 0; $i--) {
                     $date    = Carbon::now()->subDays($i)->format('Y-m-d');
-                    $revenue = Transaction::where('status', 'captured')
-                        ->whereDate('created_at', $date)
-                        ->sum('amount');
+                    $query   = Transaction::whereIn('status', ['captured', 'paid'])
+                        ->whereDate('created_at', $date);
+
+                    if ($productId) {
+                        $query->whereHas('client', function ($q) use ($productId) {
+                            $q->where('product_id', $productId);
+                        });
+                    }
+
+                    $revenue = $query->sum('amount');
                     $data[] = [
                         'label'   => Carbon::now()->subDays($i)->format('D'),
                         'revenue' => (float) $revenue,
@@ -280,9 +316,16 @@ class ReportController extends Controller
                 for ($i = 7; $i >= 0; $i--) {
                     $start   = Carbon::now()->subWeeks($i)->startOfWeek();
                     $end     = Carbon::now()->subWeeks($i)->endOfWeek();
-                    $revenue = Transaction::where('status', 'captured')
-                        ->whereBetween('created_at', [$start, $end])
-                        ->sum('amount');
+                    $query   = Transaction::whereIn('status', ['captured', 'paid'])
+                        ->whereBetween('created_at', [$start, $end]);
+
+                    if ($productId) {
+                        $query->whereHas('client', function ($q) use ($productId) {
+                            $q->where('product_id', $productId);
+                        });
+                    }
+
+                    $revenue = $query->sum('amount');
                     $data[] = [
                         'label'   => 'W' . $start->weekOfYear,
                         'revenue' => (float) $revenue,
@@ -296,10 +339,17 @@ class ReportController extends Controller
                 $data = [];
                 for ($i = 5; $i >= 0; $i--) {
                     $month   = Carbon::now()->subMonths($i);
-                    $revenue = Transaction::where('status', 'captured')
+                    $query   = Transaction::whereIn('status', ['captured', 'paid'])
                         ->whereYear('created_at', $month->year)
-                        ->whereMonth('created_at', $month->month)
-                        ->sum('amount');
+                        ->whereMonth('created_at', $month->month);
+
+                    if ($productId) {
+                        $query->whereHas('client', function ($q) use ($productId) {
+                            $q->where('product_id', $productId);
+                        });
+                    }
+
+                    $revenue = $query->sum('amount');
                     $data[] = [
                         'label'   => $month->format('M'),
                         'revenue' => (float) $revenue,
