@@ -11,6 +11,12 @@ class SettingController extends Controller
     /**
      * 1. GET: Fetch current settings.
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Settings,VIEW')->only(['getSettings']);
+        $this->middleware('permission:Settings,EDIT')->only(['saveSettings']);
+    }
+
     public function getSettings()
     {
         $settings = Setting::pluck('value', 'key')->toArray();

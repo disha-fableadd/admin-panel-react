@@ -11,6 +11,14 @@ class ProductController extends Controller
     /**
      * Display a listing of products.
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Modules (Products),VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Modules (Products),ADD')->only(['store']);
+        $this->middleware('permission:Modules (Products),EDIT')->only(['update']);
+        $this->middleware('permission:Modules (Products),DELETE')->only(['destroy']);
+    }
+
     public function index(Request $request)
     {
         $query = Product::query();

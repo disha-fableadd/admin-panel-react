@@ -23,7 +23,7 @@ class ModuleController extends Controller
      */
     public function index()
     {
-        $modules = Module::where('status', 'Active')->get();
+        $modules = Module::where('status', 'Active')->latest()->get();
         return response()->json([
             'success' => true, 
             'data' => $modules

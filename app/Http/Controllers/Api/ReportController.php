@@ -138,6 +138,11 @@ class ReportController extends Controller
      * Membership Plan Performance — default 5 per page, with proper pagination.
      * Optional filter: product_id
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Reports,VIEW');
+    }
+
     public function membershipPlanPerformance(Request $request)
     {
         $perPage   = (int) $request->get('per_page', 5);

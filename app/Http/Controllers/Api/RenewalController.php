@@ -24,6 +24,14 @@ class RenewalController extends Controller
      *   sort_by        - column to sort (default: renewal_date)
      *   sort_dir       - asc | desc (default: desc)
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Renewals,VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Renewals,ADD')->only(['store', 'createRenewalForClient']);
+        $this->middleware('permission:Renewals,EDIT')->only(['update']);
+        $this->middleware('permission:Renewals,DELETE')->only(['destroy']);
+    }
+
     public function index(Request $request)
     {
         $perPage       = (int) $request->get('per_page', 10);

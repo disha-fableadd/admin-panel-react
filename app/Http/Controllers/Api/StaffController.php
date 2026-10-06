@@ -30,6 +30,7 @@ class StaffController extends Controller
                          $q->where('name', '!=', 'Super Admin');
                      })
                      ->with(['roleModel', 'permissions.module'])
+                     ->latest()
                      ->get();
 
         return response()->json([
