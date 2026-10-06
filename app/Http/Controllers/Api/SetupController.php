@@ -157,43 +157,59 @@ class SetupController extends Controller
         ]);
     }
 
-    private function assignModulesToClient($clientId, $moduleNames)
+    private function assignModulesToClient($clientId, $moduleItems)
     {
-        if (empty($moduleNames)) return;
+        if (empty($moduleItems)) return;
 
         $client = \App\Models\Client::find($clientId);
         if (!$client) return;
 
         $moduleIds = [];
-        foreach ($moduleNames as $name) {
-            // Find existing module by name, product_id, and project_id
-            $module = \App\Models\ProjectModule::where('name', $name)
-                ->where('product_id', $client->product_id)
-                ->where('project_id', $client->project_id)
-                ->first();
-
-            if (!$module) {
-                // Create custom module
-                $module = \App\Models\ProjectModule::create([
-                    'name' => $name,
-                    'product_id' => $client->product_id,
-                    'project_id' => $client->project_id,
-                    'status' => 'Active',
-                    'client_id' => [$client->id],
-                ]);
-            } else {
-                // If it exists, append this client to the module's client_id array if not present
-                $existingClients = $module->client_id ?? [];
-                if (!in_array($client->id, $existingClients)) {
-                    $existingClients[] = $client->id;
-                    $module->update(['client_id' => array_values($existingClients)]);
+        foreach ($moduleItems as $item) {
+            // Check if it's an existing module ID
+            if (is_numeric($item)) {
+                $module = \App\Models\ProjectModule::find($item);
+                
+                if ($module) {
+                    $moduleIds[] = $module->id;
+                    
+                    // Add client_id to JSON if not present
+                    $existingClients = $module->client_id ?? [];
+                    if (!is_array($existingClients)) $existingClients = [];
+                    if (!in_array($client->id, $existingClients)) {
+                        $existingClients[] = $client->id;
+                        $module->update(['client_id' => array_values($existingClients)]);
+                    }
                 }
+            } else {
+                // It's a string name, find or create custom module
+                $module = \App\Models\ProjectModule::where('name', $item)
+                    ->where('product_id', $client->product_id)
+                    ->where('project_id', $client->project_id)
+                    ->first();
+
+                if (!$module) {
+                    $module = \App\Models\ProjectModule::create([
+                        'name' => $item,
+                        'product_id' => $client->product_id,
+                        'project_id' => $client->project_id,
+                        'status' => 'Active',
+                        'client_id' => [$client->id],
+                    ]);
+                } else {
+                    $existingClients = $module->client_id ?? [];
+                    if (!is_array($existingClients)) $existingClients = [];
+                    if (!in_array($client->id, $existingClients)) {
+                        $existingClients[] = $client->id;
+                        $module->update(['client_id' => array_values($existingClients)]);
+                    }
+                }
+                $moduleIds[] = $module->id;
             }
-            $moduleIds[] = $module->id;
         }
 
-        // Attach the modules to the client in client_project_modules pivot table 
-        // without detaching any existing modules they might already have
-        $client->projectModules()->syncWithoutDetaching($moduleIds);
+        // Attach the modules to the client in client_project_modules pivot table.
+        // Using sync() ensures that the modules accurately reflect what was sent on update.
+        $client->projectModules()->sync($moduleIds);
     }
 }
