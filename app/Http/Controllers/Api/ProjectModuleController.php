@@ -32,14 +32,32 @@ class ProjectModuleController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $projectModule = ProjectModule::create($validated);
+        $existingModule = ProjectModule::where('name', $validated['name'])
+                                       ->where('product_id', $validated['product_id'])
+                                       ->first();
+
+        if ($existingModule) {
+            $existingClients = $existingModule->client_id ?? [];
+            $newClients = $validated['client_id'] ?? [];
+            
+            $mergedClients = array_unique(array_merge($existingClients, $newClients));
+            $validated['client_id'] = array_values($mergedClients); // array_values ensures JSON array, not object
+            
+            $existingModule->update($validated);
+            $projectModule = $existingModule;
+            $message = 'Project Module updated with new clients successfully.';
+        } else {
+            $projectModule = ProjectModule::create($validated);
+            $message = 'Project Module created successfully.';
+        }
+
         $projectModule->load(['product', 'project']);
 
-        $this->notifyAllUsers('New Project Module Created', 'A new project module was added.');
+        $this->notifyAllUsers('Project Module Saved', 'A project module was added or updated.');
 
         return response()->json([
             'success' => true,
-            'message' => 'Project Module created successfully.',
+            'message' => $message,
             'data' => $projectModule
         ], 201);
     }
