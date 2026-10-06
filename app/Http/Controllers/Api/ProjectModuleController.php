@@ -30,8 +30,12 @@ class ProjectModuleController extends Controller
             }
         }
         
-        if ($projectId) {
-            $query->where('project_id', 'like', '%"'.$projectId.'"%');
+        if ($projectId && $projectId !== 'all') {
+            $query->where(function($q) use ($projectId) {
+                $q->whereJsonContains('project_id', (string)$projectId)
+                  ->orWhereJsonContains('project_id', (int)$projectId)
+                  ->orWhere('project_id', 'like', '%"'.$projectId.'"%');
+            });
         }
 
         return response()->json([
