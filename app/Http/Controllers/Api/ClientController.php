@@ -10,9 +10,17 @@ use Illuminate\Http\Request;
 
 class ClientController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('permission:Clients,VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Clients,ADD')->only(['store']);
+        $this->middleware('permission:Clients,EDIT')->only(['update']);
+        $this->middleware('permission:Clients,DELETE')->only(['destroy']);
+    }
+
     public function index()
     {
-        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup'])->get();
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup'])->latest()->get();
         return response()->json([
             'success' => true,
             'data' => $clients

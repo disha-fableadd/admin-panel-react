@@ -12,6 +12,14 @@ class TransactionController extends Controller
      * Display a listing of all transactions with client and user data.
      * Supports filtering by payment_type, status, client_id, and payment_method.
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Transactions,VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Transactions,ADD')->only(['store']);
+        $this->middleware('permission:Transactions,EDIT')->only(['update']);
+        $this->middleware('permission:Transactions,DELETE')->only(['destroy']);
+    }
+
     public function index(Request $request)
     {
         $query = Transaction::with(['client', 'user'])->latest();

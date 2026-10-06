@@ -11,6 +11,12 @@ class NotificationController extends Controller
     /**
      * Get all notifications for the authenticated user.
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Notifications,VIEW')->only(['index', 'unreadCount']);
+        $this->middleware('permission:Notifications,EDIT')->only(['markAsRead', 'markAllAsRead']);
+    }
+
     public function index(Request $request)
     {
         // Fallback if user is not authenticated through normal means (though middleware should block)

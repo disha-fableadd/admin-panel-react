@@ -11,6 +11,14 @@ class MembershipController extends Controller
     /**
      * Display a listing of memberships.
      */
+    public function __construct()
+    {
+        $this->middleware('permission:Membership Plans,VIEW')->only(['index', 'show']);
+        $this->middleware('permission:Membership Plans,ADD')->only(['store']);
+        $this->middleware('permission:Membership Plans,EDIT')->only(['update']);
+        $this->middleware('permission:Membership Plans,DELETE')->only(['destroy']);
+    }
+
     public function index(Request $request)
     {
         $query = Membership::with(['product', 'project', 'projectModule']);
