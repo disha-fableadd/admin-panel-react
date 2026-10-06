@@ -18,10 +18,22 @@ class ProjectModuleController extends Controller
 
     public function index(Request $request)
     {
-        // in get api only active modules show
-        $query = ProjectModule::with(['product', 'project']);
-        // $query->where('status', 'Active');
+        $query = ProjectModule::with(['product']);
         
+        $projectId = $request->query('project_id');
+        
+        // If no specific project requested, default to the one in settings
+        if (!$projectId) {
+            $defaultProject = \App\Models\Setting::where('key', 'is_default_project')->value('value');
+            if ($defaultProject) {
+                $projectId = $defaultProject;
+            }
+        }
+        
+        if ($projectId) {
+            $query->where('project_id', 'like', '%"'.$projectId.'"%');
+        }
+
         return response()->json([
             'success' => true,
             'data' => $query->latest()->get()
@@ -33,7 +45,8 @@ class ProjectModuleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'product_id' => 'required|integer',
-            'project_id' => 'nullable|integer',
+            'project_id' => 'nullable|array',
+            'project_id.*' => 'integer',
             'client_id' => 'nullable|array',
             'client_id.*' => 'integer',
             'status' => 'required|in:Active,Inactive',
@@ -47,9 +60,13 @@ class ProjectModuleController extends Controller
         if ($existingModule) {
             $existingClients = $existingModule->client_id ?? [];
             $newClients = $validated['client_id'] ?? [];
-            
             $mergedClients = array_unique(array_merge($existingClients, $newClients));
-            $validated['client_id'] = array_values($mergedClients); // array_values ensures JSON array, not object
+            $validated['client_id'] = array_values($mergedClients);
+
+            $existingProjects = $existingModule->project_id ?? [];
+            $newProjects = $validated['project_id'] ?? [];
+            $mergedProjects = array_unique(array_merge($existingProjects, $newProjects));
+            $validated['project_id'] = array_values($mergedProjects);
             
             $existingModule->update($validated);
             $projectModule = $existingModule;
@@ -59,7 +76,7 @@ class ProjectModuleController extends Controller
             $message = 'Project Module created successfully.';
         }
 
-        $projectModule->load(['product', 'project']);
+        $projectModule->load(['product']);
 
         $this->notifyAllUsers('Project Module Saved', 'A project module was added or updated.');
 
@@ -72,7 +89,7 @@ class ProjectModuleController extends Controller
 
     public function show(ProjectModule $projectModule)
     {
-        $projectModule->load(['product', 'project']);
+        $projectModule->load(['product']);
         return response()->json([
             'success' => true,
             'data' => $projectModule
@@ -84,7 +101,8 @@ class ProjectModuleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'product_id' => 'required|integer',
-            'project_id' => 'nullable|integer',
+            'project_id' => 'nullable|array',
+            'project_id.*' => 'integer',
             'client_id' => 'nullable|array',
             'client_id.*' => 'integer',
             'status' => 'required|in:Active,Inactive',
@@ -92,7 +110,7 @@ class ProjectModuleController extends Controller
         ]);
 
         $projectModule->update($validated);
-        $projectModule->load(['product', 'project']);
+        $projectModule->load(['product']);
 
         return response()->json([
             'success' => true,
