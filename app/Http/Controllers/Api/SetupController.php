@@ -28,12 +28,47 @@ class SetupController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'client_id' => 'required|integer|exists:clients,id',
+            'clientId' => 'required|integer',
+            'clientName' => 'nullable|string|max:255',
+            'product' => 'nullable|string',
             'domain' => 'required|string|max:255',
-            'db_credential' => 'nullable|array',
+            'databaseName' => 'nullable|string',
+            'dbHost' => 'nullable|string',
+            'dbUsername' => 'nullable|string',
+            'dbPassword' => 'nullable|string',
+            'dbPort' => 'nullable|integer',
+            'sslEnabled' => 'nullable|boolean',
+            'status' => 'nullable|string',
+            'version' => 'nullable|string',
+            'planName' => 'nullable|string',
+            'billingCycle' => 'nullable|string',
+            'amount' => 'nullable|numeric',
+            'renewalAmount' => 'nullable|numeric',
+            'assignedModules' => 'nullable|array',
+            'assignedModules.*' => 'string'
         ]);
 
-        $setup = Setup::create($validated);
+        $setupData = [
+            'client_id' => $validated['clientId'],
+            'client_name' => $validated['clientName'] ?? null,
+            'product' => $validated['product'] ?? null,
+            'domain' => $validated['domain'],
+            'database_name' => $validated['databaseName'] ?? null,
+            'db_host' => $validated['dbHost'] ?? null,
+            'db_username' => $validated['dbUsername'] ?? null,
+            'db_password' => $validated['dbPassword'] ?? null,
+            'db_port' => $validated['dbPort'] ?? 5432,
+            'ssl_enabled' => $validated['sslEnabled'] ?? true,
+            'status' => $validated['status'] ?? 'Active',
+            'version' => $validated['version'] ?? 'v1.0.0',
+            'plan_name' => $validated['planName'] ?? null,
+            'billing_cycle' => $validated['billingCycle'] ?? null,
+            'amount' => $validated['amount'] ?? null,
+            'renewal_amount' => $validated['renewalAmount'] ?? null,
+            'assigned_modules' => $validated['assignedModules'] ?? [],
+        ];
+
+        $setup = Setup::create($setupData);
 
         $this->notifyAllUsers('New Setup Created', 'A new setup was added.');
 
@@ -56,12 +91,47 @@ class SetupController extends Controller
     public function update(Request $request, Setup $setup)
     {
         $validated = $request->validate([
-            'client_id' => 'required|integer|exists:clients,id',
+            'clientId' => 'required|integer',
+            'clientName' => 'nullable|string|max:255',
+            'product' => 'nullable|string',
             'domain' => 'required|string|max:255',
-            'db_credential' => 'nullable|array',
+            'databaseName' => 'nullable|string',
+            'dbHost' => 'nullable|string',
+            'dbUsername' => 'nullable|string',
+            'dbPassword' => 'nullable|string',
+            'dbPort' => 'nullable|integer',
+            'sslEnabled' => 'nullable|boolean',
+            'status' => 'nullable|string',
+            'version' => 'nullable|string',
+            'planName' => 'nullable|string',
+            'billingCycle' => 'nullable|string',
+            'amount' => 'nullable|numeric',
+            'renewalAmount' => 'nullable|numeric',
+            'assignedModules' => 'nullable|array',
+            'assignedModules.*' => 'string'
         ]);
 
-        $setup->update($validated);
+        $setupData = [
+            'client_id' => $validated['clientId'],
+            'client_name' => $validated['clientName'] ?? null,
+            'product' => $validated['product'] ?? null,
+            'domain' => $validated['domain'],
+            'database_name' => $validated['databaseName'] ?? null,
+            'db_host' => $validated['dbHost'] ?? null,
+            'db_username' => $validated['dbUsername'] ?? null,
+            'db_password' => $validated['dbPassword'] ?? null,
+            'db_port' => $validated['dbPort'] ?? 5432,
+            'ssl_enabled' => $validated['sslEnabled'] ?? true,
+            'status' => $validated['status'] ?? 'Active',
+            'version' => $validated['version'] ?? 'v1.0.0',
+            'plan_name' => $validated['planName'] ?? null,
+            'billing_cycle' => $validated['billingCycle'] ?? null,
+            'amount' => $validated['amount'] ?? null,
+            'renewal_amount' => $validated['renewalAmount'] ?? null,
+            'assigned_modules' => $validated['assignedModules'] ?? [],
+        ];
+
+        $setup->update($setupData);
 
         return response()->json([
             'success' => true,
