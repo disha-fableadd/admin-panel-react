@@ -22,14 +22,6 @@ class ProjectModuleController extends Controller
         
         $projectId = $request->query('project_id');
         
-        // If no specific project requested, default to the one in settings
-        if (!$projectId) {
-            $defaultProject = \App\Models\Setting::where('key', 'is_default_project')->value('value');
-            if ($defaultProject) {
-                $projectId = $defaultProject;
-            }
-        }
-        
         if ($projectId && $projectId !== 'all') {
             $query->where(function($q) use ($projectId) {
                 $q->whereJsonContains('project_id', (string)$projectId)
