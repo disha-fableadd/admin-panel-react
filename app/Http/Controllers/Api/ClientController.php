@@ -182,20 +182,45 @@ class ClientController extends Controller
             
             if (array_key_exists('amount', $validated)) {
                 $cycle = $client->setup->billing_cycle;
-                if ($cycle && isset($validated['amount'][$cycle])) {
-                    $setupUpdateData['amount'] = $validated['amount'][$cycle];
-                } elseif (!empty($validated['amount']) && is_array($validated['amount'])) {
-                    $setupUpdateData['amount'] = reset($validated['amount']);
+                $val = null;
+                if ($cycle && is_array($validated['amount'])) {
+                    foreach ($validated['amount'] as $k => $v) {
+                        if (strcasecmp($k, $cycle) === 0) {
+                            $val = $v;
+                            break;
+                        }
+                    }
+                }
+                if ($val === null && !empty($validated['amount']) && is_array($validated['amount'])) {
+                    $val = reset($validated['amount']);
+                }
+                if ($val !== null) {
+                    $setupUpdateData['amount'] = $val;
                 }
             }
             
             if (array_key_exists('renewal_amount', $validated)) {
                 $cycle = $client->setup->billing_cycle;
-                if ($cycle && isset($validated['renewal_amount'][$cycle])) {
-                    $setupUpdateData['renewal_amount'] = $validated['renewal_amount'][$cycle];
-                } elseif (!empty($validated['renewal_amount']) && is_array($validated['renewal_amount'])) {
-                    $setupUpdateData['renewal_amount'] = reset($validated['renewal_amount']);
+                $val = null;
+                if ($cycle && is_array($validated['renewal_amount'])) {
+                    foreach ($validated['renewal_amount'] as $k => $v) {
+                        if (strcasecmp($k, $cycle) === 0) {
+                            $val = $v;
+                            break;
+                        }
+                    }
                 }
+                if ($val === null && !empty($validated['renewal_amount']) && is_array($validated['renewal_amount'])) {
+                    $val = reset($validated['renewal_amount']);
+                }
+                if ($val !== null) {
+                    $setupUpdateData['renewal_amount'] = $val;
+                }
+            }
+
+            if (isset($validated['assign_module'])) {
+                $moduleNames = \App\Models\ProjectModule::whereIn('id', $validated['assign_module'])->pluck('name')->toArray();
+                $setupUpdateData['assigned_modules'] = $moduleNames;
             }
             
             if (!empty($setupUpdateData)) {

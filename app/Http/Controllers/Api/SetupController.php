@@ -45,7 +45,6 @@ class SetupController extends Controller
             'amount' => 'nullable|numeric',
             'renewalAmount' => 'nullable|numeric',
             'assignedModules' => 'nullable|array',
-            'assignedModules.*' => 'string'
         ]);
 
         $setupData = [
@@ -75,9 +74,17 @@ class SetupController extends Controller
         if ($client) {
             $clientUpdateData = [];
             
+            if (!empty($validated['product'])) {
+                $product = \App\Models\Product::where('title', $validated['product'])->first();
+                if ($product) {
+                    $clientUpdateData['product_id'] = $product->id;
+                }
+            }
+
             if (!empty($validated['planName'])) {
+                $prodId = $clientUpdateData['product_id'] ?? $client->product_id;
                 $membership = \App\Models\Membership::where('plan_name', $validated['planName'])
-                    ->where('product_id', $client->product_id)
+                    ->where('product_id', $prodId)
                     ->where('project_id', $client->project_id)
                     ->first();
                     
@@ -90,13 +97,35 @@ class SetupController extends Controller
             
             if (array_key_exists('amount', $validated)) {
                 $amounts = is_array($client->amount) ? $client->amount : [];
-                $amounts[$cycle] = $validated['amount'];
+                $matchedKey = null;
+                foreach (array_keys($amounts) as $k) {
+                    if (strcasecmp($k, $cycle) === 0) {
+                        $matchedKey = $k;
+                        break;
+                    }
+                }
+                if ($matchedKey !== null) {
+                    $amounts[$matchedKey] = $validated['amount'];
+                } else {
+                    $amounts[$cycle] = $validated['amount'];
+                }
                 $clientUpdateData['amount'] = $amounts;
             }
 
             if (array_key_exists('renewalAmount', $validated)) {
                 $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
-                $renewals[$cycle] = $validated['renewalAmount'];
+                $matchedKey = null;
+                foreach (array_keys($renewals) as $k) {
+                    if (strcasecmp($k, $cycle) === 0) {
+                        $matchedKey = $k;
+                        break;
+                    }
+                }
+                if ($matchedKey !== null) {
+                    $renewals[$matchedKey] = $validated['renewalAmount'];
+                } else {
+                    $renewals[$cycle] = $validated['renewalAmount'];
+                }
                 $clientUpdateData['renewal_amount'] = $renewals;
             }
 
@@ -105,7 +134,7 @@ class SetupController extends Controller
             }
         }
 
-        if (!empty($validated['assignedModules'])) {
+        if (array_key_exists('assignedModules', $validated)) {
             $this->assignModulesToClient($validated['clientId'], $validated['assignedModules']);
         }
 
@@ -147,7 +176,6 @@ class SetupController extends Controller
             'amount' => 'nullable|numeric',
             'renewalAmount' => 'nullable|numeric',
             'assignedModules' => 'nullable|array',
-            'assignedModules.*' => 'string'
         ]);
 
         $setupData = [
@@ -200,13 +228,35 @@ class SetupController extends Controller
             
             if (array_key_exists('amount', $validated)) {
                 $amounts = is_array($client->amount) ? $client->amount : [];
-                $amounts[$cycle] = $validated['amount'];
+                $matchedKey = null;
+                foreach (array_keys($amounts) as $k) {
+                    if (strcasecmp($k, $cycle) === 0) {
+                        $matchedKey = $k;
+                        break;
+                    }
+                }
+                if ($matchedKey !== null) {
+                    $amounts[$matchedKey] = $validated['amount'];
+                } else {
+                    $amounts[$cycle] = $validated['amount'];
+                }
                 $clientUpdateData['amount'] = $amounts;
             }
 
             if (array_key_exists('renewalAmount', $validated)) {
                 $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
-                $renewals[$cycle] = $validated['renewalAmount'];
+                $matchedKey = null;
+                foreach (array_keys($renewals) as $k) {
+                    if (strcasecmp($k, $cycle) === 0) {
+                        $matchedKey = $k;
+                        break;
+                    }
+                }
+                if ($matchedKey !== null) {
+                    $renewals[$matchedKey] = $validated['renewalAmount'];
+                } else {
+                    $renewals[$cycle] = $validated['renewalAmount'];
+                }
                 $clientUpdateData['renewal_amount'] = $renewals;
             }
 
@@ -215,7 +265,7 @@ class SetupController extends Controller
             }
         }
 
-        if (!empty($validated['assignedModules'])) {
+        if (array_key_exists('assignedModules', $validated)) {
             $this->assignModulesToClient($validated['clientId'], $validated['assignedModules']);
         }
 
@@ -237,13 +287,20 @@ class SetupController extends Controller
 
     private function assignModulesToClient($clientId, $moduleItems)
     {
-        if (empty($moduleItems)) return;
+        if (!is_array($moduleItems)) return;
 
         $client = \App\Models\Client::find($clientId);
         if (!$client) return;
 
+        if (empty($moduleItems)) {
+            $client->projectModules()->sync([]);
+            return;
+        }
+
         $moduleIds = [];
         foreach ($moduleItems as $item) {
+            if (empty($item)) continue;
+
             // Check if it's an existing module ID
             if (is_numeric($item)) {
                 $module = \App\Models\ProjectModule::find($item);
@@ -253,16 +310,27 @@ class SetupController extends Controller
                     $moduleIds[] = $module->id;
                 }
             } else {
-                // It's a string name, find or create custom module
-                $module = \App\Models\ProjectModule::where('name', $item)
+                // Strip possible formatted labels like "dashboard (Project: demo-crm)"
+                $cleanName = trim(preg_replace('/\s*\(Project:.*?\)$/i', '', (string)$item));
+
+                // Find existing module for this product or globally
+                $module = \App\Models\ProjectModule::where(function($q) use ($item, $cleanName) {
+                        $q->where('name', $item)->orWhere('name', $cleanName);
+                    })
                     ->where('product_id', $client->product_id)
                     ->first();
+
+                if (!$module) {
+                    $module = \App\Models\ProjectModule::where(function($q) use ($item, $cleanName) {
+                        $q->where('name', $item)->orWhere('name', $cleanName);
+                    })->first();
+                }
 
                 if ($module) {
                     // Module exists globally for this product. Just merge the project_id. 
                     // Do NOT merge client_id for already existing modules (reusable) as per user rules.
                     $existingProjects = $module->project_id ?? [];
-                    if (!in_array($client->project_id, $existingProjects)) {
+                    if ($client->project_id && !in_array($client->project_id, $existingProjects)) {
                         $existingProjects[] = $client->project_id;
                         $module->project_id = array_values(array_unique($existingProjects));
                         $module->save();
@@ -270,14 +338,13 @@ class SetupController extends Controller
                 } else {
                     // Newly created custom module specifically for this client -> add client_id
                     $module = \App\Models\ProjectModule::create([
-                        'name' => $item,
+                        'name' => $cleanName,
                         'product_id' => $client->product_id,
-                        'project_id' => [$client->project_id],
+                        'project_id' => $client->project_id ? [$client->project_id] : [],
                         'status' => 'Active',
                         'client_id' => [$client->id],
                     ]);
                 }
-                // If it already existed, we just reuse it and don't touch the client_id array.
                 
                 $moduleIds[] = $module->id;
             }
@@ -285,6 +352,6 @@ class SetupController extends Controller
 
         // Attach the modules to the client in client_project_modules pivot table.
         // Using sync() ensures that the modules accurately reflect what was sent on update.
-        $client->projectModules()->sync($moduleIds);
+        $client->projectModules()->sync(array_values(array_unique($moduleIds)));
     }
 }
