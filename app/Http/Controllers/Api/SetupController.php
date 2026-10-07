@@ -78,6 +78,7 @@ class SetupController extends Controller
             if (!empty($validated['planName'])) {
                 $membership = \App\Models\Membership::where('plan_name', $validated['planName'])
                     ->where('product_id', $client->product_id)
+                    ->where('project_id', $client->project_id)
                     ->first();
                     
                 if ($membership) {
@@ -85,20 +86,18 @@ class SetupController extends Controller
                 }
             }
 
-            if (!empty($validated['billingCycle'])) {
-                $cycle = $validated['billingCycle'];
-                
-                if (isset($validated['amount'])) {
-                    $amounts = is_array($client->amount) ? $client->amount : [];
-                    $amounts[$cycle] = $validated['amount'];
-                    $clientUpdateData['amount'] = $amounts;
-                }
+            $cycle = $validated['billingCycle'] ?? 'Yearly';
+            
+            if (array_key_exists('amount', $validated)) {
+                $amounts = is_array($client->amount) ? $client->amount : [];
+                $amounts[$cycle] = $validated['amount'];
+                $clientUpdateData['amount'] = $amounts;
+            }
 
-                if (isset($validated['renewalAmount'])) {
-                    $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
-                    $renewals[$cycle] = $validated['renewalAmount'];
-                    $clientUpdateData['renewal_amount'] = $renewals;
-                }
+            if (array_key_exists('renewalAmount', $validated)) {
+                $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
+                $renewals[$cycle] = $validated['renewalAmount'];
+                $clientUpdateData['renewal_amount'] = $renewals;
             }
 
             if (!empty($clientUpdateData)) {
@@ -173,15 +172,23 @@ class SetupController extends Controller
 
         $setup->update($setupData);
 
-        // Update the client when setup plan details change
+        // Update the client when setup details change
         $client = \App\Models\Client::find($validated['clientId']);
         if ($client) {
             $clientUpdateData = [];
             
-            if (!empty($validated['planName'])) {
-                // Find membership by name and product_id to ensure correct plan
+            if (array_key_exists('product', $validated)) {
+                $product = \App\Models\Product::where('title', $validated['product'])->first();
+                if ($product) {
+                    $clientUpdateData['product_id'] = $product->id;
+                }
+            }
+            
+            if (array_key_exists('planName', $validated)) {
+                $prodId = $clientUpdateData['product_id'] ?? $client->product_id;
                 $membership = \App\Models\Membership::where('plan_name', $validated['planName'])
-                    ->where('product_id', $client->product_id)
+                    ->where('product_id', $prodId)
+                    ->where('project_id', $client->project_id)
                     ->first();
                     
                 if ($membership) {
@@ -189,20 +196,18 @@ class SetupController extends Controller
                 }
             }
 
-            if (!empty($validated['billingCycle'])) {
-                $cycle = $validated['billingCycle'];
-                
-                if (isset($validated['amount'])) {
-                    $amounts = is_array($client->amount) ? $client->amount : [];
-                    $amounts[$cycle] = $validated['amount'];
-                    $clientUpdateData['amount'] = $amounts;
-                }
+            $cycle = $validated['billingCycle'] ?? $setup->billing_cycle ?? 'Yearly';
+            
+            if (array_key_exists('amount', $validated)) {
+                $amounts = is_array($client->amount) ? $client->amount : [];
+                $amounts[$cycle] = $validated['amount'];
+                $clientUpdateData['amount'] = $amounts;
+            }
 
-                if (isset($validated['renewalAmount'])) {
-                    $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
-                    $renewals[$cycle] = $validated['renewalAmount'];
-                    $clientUpdateData['renewal_amount'] = $renewals;
-                }
+            if (array_key_exists('renewalAmount', $validated)) {
+                $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
+                $renewals[$cycle] = $validated['renewalAmount'];
+                $clientUpdateData['renewal_amount'] = $renewals;
             }
 
             if (!empty($clientUpdateData)) {

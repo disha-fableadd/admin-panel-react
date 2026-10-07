@@ -166,6 +166,43 @@ class ClientController extends Controller
             $client->projectModules()->sync($validated['assign_module']);
         }
 
+        // Synchronize changes to the Setup
+        if ($client->setup) {
+            $setupUpdateData = [];
+            
+            if (array_key_exists('product_id', $validated)) {
+                $product = \App\Models\Product::find($validated['product_id']);
+                if ($product) $setupUpdateData['product'] = $product->title;
+            }
+            
+            if (array_key_exists('membership_id', $validated)) {
+                $membership = \App\Models\Membership::find($validated['membership_id']);
+                if ($membership) $setupUpdateData['plan_name'] = $membership->plan_name;
+            }
+            
+            if (array_key_exists('amount', $validated)) {
+                $cycle = $client->setup->billing_cycle;
+                if ($cycle && isset($validated['amount'][$cycle])) {
+                    $setupUpdateData['amount'] = $validated['amount'][$cycle];
+                } elseif (!empty($validated['amount']) && is_array($validated['amount'])) {
+                    $setupUpdateData['amount'] = reset($validated['amount']);
+                }
+            }
+            
+            if (array_key_exists('renewal_amount', $validated)) {
+                $cycle = $client->setup->billing_cycle;
+                if ($cycle && isset($validated['renewal_amount'][$cycle])) {
+                    $setupUpdateData['renewal_amount'] = $validated['renewal_amount'][$cycle];
+                } elseif (!empty($validated['renewal_amount']) && is_array($validated['renewal_amount'])) {
+                    $setupUpdateData['renewal_amount'] = reset($validated['renewal_amount']);
+                }
+            }
+            
+            if (!empty($setupUpdateData)) {
+                $client->setup->update($setupUpdateData);
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Client updated successfully.',
