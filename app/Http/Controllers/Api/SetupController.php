@@ -303,5 +303,15 @@ class SetupController extends Controller
         // Attach the modules to the client in client_project_modules pivot table.
         // Using sync() ensures that the modules accurately reflect what was sent on update.
         $client->projectModules()->sync(array_values(array_unique($moduleIds)));
+
+        // Clean up client_id array on custom ProjectModules that are no longer assigned to this client
+        $customModules = \App\Models\ProjectModule::whereJsonContains('client_id', $client->id)->get();
+        foreach ($customModules as $customModule) {
+            if (!in_array($customModule->id, $moduleIds)) {
+                $clientIds = array_values(array_diff($customModule->client_id ?? [], [$client->id]));
+                $customModule->client_id = $clientIds;
+                $customModule->save();
+            }
+        }
     }
 }

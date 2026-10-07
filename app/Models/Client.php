@@ -125,4 +125,44 @@ class Client extends Model
 
         return 'Ongoing';
     }
+
+    /**
+     * Convert the model instance to an array.
+     * Synchronizes membership project modules with client-level setup assigned_modules override.
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+
+        $assignedModules = null;
+        if (isset($array['setup']['assigned_modules']) && is_array($array['setup']['assigned_modules'])) {
+            $assignedModules = $array['setup']['assigned_modules'];
+        } elseif ($this->relationLoaded('setup') && $this->setup && is_array($this->setup->assigned_modules)) {
+            $assignedModules = $this->setup->assigned_modules;
+        }
+
+        if ($assignedModules !== null && !empty($array['membership'])) {
+            $assignedLookup = [];
+            foreach ($assignedModules as $m) {
+                if (is_numeric($m)) {
+                    $assignedLookup['id_' . (int)$m] = true;
+                } else {
+                    $cleanName = strtolower(trim(preg_replace('/\s*\(Project:.*?\)$/i', '', (string)$m)));
+                    $assignedLookup['name_' . $cleanName] = true;
+                }
+            }
+
+            if (!empty($array['membership']['project_modules_data']) && is_array($array['membership']['project_modules_data'])) {
+                $filteredData = array_values(array_filter($array['membership']['project_modules_data'], function($mod) use ($assignedLookup) {
+                    $modId = isset($mod['id']) ? (int)$mod['id'] : null;
+                    $modName = isset($mod['name']) ? strtolower(trim($mod['name'])) : '';
+                    return (isset($assignedLookup['id_' . $modId]) || isset($assignedLookup['name_' . $modName]));
+                }));
+                $array['membership']['project_modules_data'] = $filteredData;
+                $array['membership']['project_modules_id'] = array_values(array_column($filteredData, 'id'));
+            }
+        }
+
+        return $array;
+    }
 }
