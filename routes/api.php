@@ -49,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('memberships', \App\Http\Controllers\Api\MembershipController::class);
 
     // Clients API
+    Route::get('/clients/upcoming-renewals', [\App\Http\Controllers\Api\ClientController::class, 'upcomingRenewals']);
     Route::apiResource('clients', \App\Http\Controllers\Api\ClientController::class);
     
     // Setups API

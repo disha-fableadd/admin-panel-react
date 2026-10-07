@@ -27,6 +27,20 @@ class ClientController extends Controller
         ]);
     }
 
+    public function upcomingRenewals()
+    {
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup'])->latest()->get();
+        
+        $upcoming = $clients->filter(function ($client) {
+            return in_array($client->membership_status, ['Expiring Soon', 'Expired']);
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $upcoming
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
