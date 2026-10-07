@@ -85,11 +85,25 @@ class RenewalController extends Controller
             $product    = $client?->product;
             $membership = $client?->membership;
 
-            // Compute days left
+            // Compute days left & formatted label
+            $targetDate = $renewal->new_end_date ?? $client?->expiry_date;
             $daysLeft = null;
-            if ($renewal->new_end_date) {
-                $daysLeft = (int) Carbon::now()->startOfDay()
-                    ->diffInDays(Carbon::parse($renewal->new_end_date), false);
+            $daysLeftText = 'N/A';
+
+            if ($targetDate) {
+                $target = Carbon::parse($targetDate)->startOfDay();
+                $today  = Carbon::today();
+                $daysLeft = (int) $today->diffInDays($target, false);
+
+                if ($daysLeft > 1) {
+                    $daysLeftText = "{$daysLeft} Days Left";
+                } elseif ($daysLeft === 1) {
+                    $daysLeftText = "1 Day Left";
+                } elseif ($daysLeft === 0) {
+                    $daysLeftText = "Today";
+                } else {
+                    $daysLeftText = "Expired (" . abs($daysLeft) . "d ago)";
+                }
             }
 
             // Determine computed status label
@@ -108,8 +122,10 @@ class RenewalController extends Controller
                 'amount'            => (float) $renewal->amount,
                 'previous_end_date' => $renewal->previous_end_date?->format('Y-m-d'),
                 'renewal_date'      => $renewal->renewal_date?->format('Y-m-d'),
+                'expiry_date'       => $renewal->new_end_date?->format('Y-m-d') ?? ($client?->expiry_date ? Carbon::parse($client->expiry_date)->format('Y-m-d') : null),
                 'new_end_date'      => $renewal->new_end_date?->format('Y-m-d'),
                 'days_left'         => $daysLeft,
+                'days_left_text'    => $daysLeftText,
                 'notes'             => $renewal->notes,
                 'created_at'        => $renewal->created_at,
             ];
@@ -152,10 +168,24 @@ class RenewalController extends Controller
         $client  = $renewal->client;
         $product = $client?->product;
 
+        $targetDate = $renewal->new_end_date ?? $client?->expiry_date;
         $daysLeft = null;
-        if ($renewal->new_end_date) {
-            $daysLeft = (int) Carbon::now()->startOfDay()
-                ->diffInDays(Carbon::parse($renewal->new_end_date), false);
+        $daysLeftText = 'N/A';
+
+        if ($targetDate) {
+            $target = Carbon::parse($targetDate)->startOfDay();
+            $today  = Carbon::today();
+            $daysLeft = (int) $today->diffInDays($target, false);
+
+            if ($daysLeft > 1) {
+                $daysLeftText = "{$daysLeft} Days Left";
+            } elseif ($daysLeft === 1) {
+                $daysLeftText = "1 Day Left";
+            } elseif ($daysLeft === 0) {
+                $daysLeftText = "Today";
+            } else {
+                $daysLeftText = "Expired (" . abs($daysLeft) . "d ago)";
+            }
         }
 
         return response()->json([
@@ -172,8 +202,10 @@ class RenewalController extends Controller
                 'amount'            => (float) $renewal->amount,
                 'previous_end_date' => $renewal->previous_end_date?->format('Y-m-d'),
                 'renewal_date'      => $renewal->renewal_date?->format('Y-m-d'),
+                'expiry_date'       => $renewal->new_end_date?->format('Y-m-d') ?? ($client?->expiry_date ? Carbon::parse($client->expiry_date)->format('Y-m-d') : null),
                 'new_end_date'      => $renewal->new_end_date?->format('Y-m-d'),
                 'days_left'         => $daysLeft,
+                'days_left_text'    => $daysLeftText,
                 'notes'             => $renewal->notes,
                 'created_at'        => $renewal->created_at,
             ],
