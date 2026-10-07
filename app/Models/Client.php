@@ -67,7 +67,7 @@ class Client extends Model
         return $this->hasMany(Renewal::class);
     }
 
-    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date'];
+    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'days_left', 'days_left_text'];
 
     public function getCalculatedStartDateAttribute()
     {
@@ -105,6 +105,33 @@ class Client extends Model
         }
 
         return null;
+    }
+
+    public function getDaysLeftAttribute(): ?int
+    {
+        $endDate = $this->calculated_end_date;
+        if (!$endDate) return null;
+
+        $target = \Carbon\Carbon::parse($endDate)->startOfDay();
+        $today  = \Carbon\Carbon::today();
+
+        return (int) $today->diffInDays($target, false);
+    }
+
+    public function getDaysLeftTextAttribute(): string
+    {
+        $days = $this->days_left;
+        if ($days === null) return 'N/A';
+
+        if ($days > 1) {
+            return "{$days} Days Left";
+        } elseif ($days === 1) {
+            return "1 Day Left";
+        } elseif ($days === 0) {
+            return "Today";
+        } else {
+            return "Expired (" . abs($days) . "d ago)";
+        }
     }
 
     public function getMembershipStatusAttribute()
