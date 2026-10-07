@@ -94,39 +94,14 @@ class SetupController extends Controller
             }
 
             $cycle = $validated['billingCycle'] ?? 'Yearly';
+            $clientUpdateData['billing_title'] = $cycle;
             
-            if (array_key_exists('amount', $validated)) {
-                $amounts = is_array($client->amount) ? $client->amount : [];
-                $matchedKey = null;
-                foreach (array_keys($amounts) as $k) {
-                    if (strcasecmp($k, $cycle) === 0) {
-                        $matchedKey = $k;
-                        break;
-                    }
-                }
-                if ($matchedKey !== null) {
-                    $amounts[$matchedKey] = $validated['amount'];
-                } else {
-                    $amounts[$cycle] = $validated['amount'];
-                }
-                $clientUpdateData['amount'] = $amounts;
+            if (array_key_exists('amount', $validated) && $validated['amount'] !== null) {
+                $clientUpdateData['amount'] = [is_numeric($validated['amount']) ? ($validated['amount'] + 0) : $validated['amount']];
             }
 
-            if (array_key_exists('renewalAmount', $validated)) {
-                $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
-                $matchedKey = null;
-                foreach (array_keys($renewals) as $k) {
-                    if (strcasecmp($k, $cycle) === 0) {
-                        $matchedKey = $k;
-                        break;
-                    }
-                }
-                if ($matchedKey !== null) {
-                    $renewals[$matchedKey] = $validated['renewalAmount'];
-                } else {
-                    $renewals[$cycle] = $validated['renewalAmount'];
-                }
-                $clientUpdateData['renewal_amount'] = $renewals;
+            if (array_key_exists('renewalAmount', $validated) && $validated['renewalAmount'] !== null) {
+                $clientUpdateData['renewal_amount'] = [is_numeric($validated['renewalAmount']) ? ($validated['renewalAmount'] + 0) : $validated['renewalAmount']];
             }
 
             if (!empty($clientUpdateData)) {
@@ -225,39 +200,14 @@ class SetupController extends Controller
             }
 
             $cycle = $validated['billingCycle'] ?? $setup->billing_cycle ?? 'Yearly';
+            $clientUpdateData['billing_title'] = $cycle;
             
-            if (array_key_exists('amount', $validated)) {
-                $amounts = is_array($client->amount) ? $client->amount : [];
-                $matchedKey = null;
-                foreach (array_keys($amounts) as $k) {
-                    if (strcasecmp($k, $cycle) === 0) {
-                        $matchedKey = $k;
-                        break;
-                    }
-                }
-                if ($matchedKey !== null) {
-                    $amounts[$matchedKey] = $validated['amount'];
-                } else {
-                    $amounts[$cycle] = $validated['amount'];
-                }
-                $clientUpdateData['amount'] = $amounts;
+            if (array_key_exists('amount', $validated) && $validated['amount'] !== null) {
+                $clientUpdateData['amount'] = [is_numeric($validated['amount']) ? ($validated['amount'] + 0) : $validated['amount']];
             }
 
-            if (array_key_exists('renewalAmount', $validated)) {
-                $renewals = is_array($client->renewal_amount) ? $client->renewal_amount : [];
-                $matchedKey = null;
-                foreach (array_keys($renewals) as $k) {
-                    if (strcasecmp($k, $cycle) === 0) {
-                        $matchedKey = $k;
-                        break;
-                    }
-                }
-                if ($matchedKey !== null) {
-                    $renewals[$matchedKey] = $validated['renewalAmount'];
-                } else {
-                    $renewals[$cycle] = $validated['renewalAmount'];
-                }
-                $clientUpdateData['renewal_amount'] = $renewals;
+            if (array_key_exists('renewalAmount', $validated) && $validated['renewalAmount'] !== null) {
+                $clientUpdateData['renewal_amount'] = [is_numeric($validated['renewalAmount']) ? ($validated['renewalAmount'] + 0) : $validated['renewalAmount']];
             }
 
             if (!empty($clientUpdateData)) {
