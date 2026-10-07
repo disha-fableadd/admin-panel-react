@@ -66,4 +66,63 @@ class Client extends Model
     {
         return $this->hasMany(Renewal::class);
     }
+
+    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date'];
+
+    public function getCalculatedStartDateAttribute()
+    {
+        if (!empty($this->start_date)) {
+            return \Carbon\Carbon::parse($this->start_date)->format('Y-m-d');
+        }
+        return $this->created_at ? $this->created_at->format('Y-m-d') : null;
+    }
+
+    public function getCalculatedEndDateAttribute()
+    {
+        if (!empty($this->expiry_date)) {
+            return \Carbon\Carbon::parse($this->expiry_date)->format('Y-m-d');
+        }
+
+        $startDate = $this->calculated_start_date;
+        if (!$startDate) return null;
+
+        $start = \Carbon\Carbon::parse($startDate);
+        
+        $billingCycle = null;
+        if ($this->relationLoaded('setup') && $this->setup) {
+            $billingCycle = strtolower($this->setup->billing_cycle);
+        } elseif (!$this->relationLoaded('setup')) {
+            $setup = clone $this->setup()->first();
+            if ($setup) {
+                $billingCycle = strtolower($setup->billing_cycle);
+            }
+        }
+
+        if ($billingCycle === 'monthly' || $billingCycle === 'month') {
+            return $start->addMonth()->format('Y-m-d');
+        } elseif ($billingCycle === 'yearly' || $billingCycle === 'year') {
+            return $start->addYear()->format('Y-m-d');
+        }
+
+        return null;
+    }
+
+    public function getMembershipStatusAttribute()
+    {
+        $endDate = $this->calculated_end_date;
+        if (!$endDate) return null;
+
+        $end = \Carbon\Carbon::parse($endDate)->endOfDay();
+        $now = \Carbon\Carbon::now();
+
+        if ($now->isAfter($end)) {
+            return 'Expired';
+        }
+
+        if ($now->copy()->addWeek()->isAfter($end) || $now->copy()->addWeek()->isSameDay($end)) {
+            return 'Expiring Soon';
+        }
+
+        return 'Ongoing';
+    }
 }

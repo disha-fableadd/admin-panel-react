@@ -22,7 +22,7 @@ class TransactionController extends Controller
 
     public function index(Request $request)
     {
-        $query = Transaction::with(['client', 'user'])->latest();
+        $query = Transaction::with(['client.membership', 'client.product', 'client.project', 'user'])->latest();
 
         if ($request->filled('payment_type')) {
             $query->where('payment_type', $request->payment_type);
@@ -77,7 +77,7 @@ class TransactionController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Transaction created successfully.',
-            'data'    => $transaction->load(['client', 'user'])
+            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'user'])
         ], 201);
     }
 
@@ -86,7 +86,7 @@ class TransactionController extends Controller
      */
     public function show($id)
     {
-        $transaction = Transaction::with(['client', 'user'])->find($id);
+        $transaction = Transaction::with(['client.membership', 'client.product', 'client.project', 'user'])->find($id);
 
         if (!$transaction) {
             return response()->json([
@@ -135,7 +135,7 @@ class TransactionController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Transaction updated successfully.',
-            'data'    => $transaction->load(['client', 'user'])
+            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'user'])
         ], 200);
     }
 }
