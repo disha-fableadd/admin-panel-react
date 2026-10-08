@@ -32,7 +32,7 @@ class ClientController extends Controller
         $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
         
         $upcoming = $clients->filter(function ($client) {
-            return in_array($client->membership_status, ['Expiring Soon', 'Expired']);
+            return in_array($client->membership_status, ['Expiring Soon', 'Expired']) || $client->plan_status === 'Renewed';
         })->values();
 
         return response()->json([
