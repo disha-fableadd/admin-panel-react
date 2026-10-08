@@ -36,7 +36,7 @@ class Setup extends Model
         'renewal_amount' => 'decimal:2',
     ];
 
-    protected $appends = ['new_renewal_start_date', 'new_renewal_end_date'];
+    protected $appends = ['new_renewal_start_date', 'new_renewal_end_date', 'plan_status'];
 
     public function client()
     {
@@ -51,5 +51,10 @@ class Setup extends Model
     public function getNewRenewalEndDateAttribute()
     {
         return $this->client ? $this->client->new_renewal_end_date : null;
+    }
+
+    public function getPlanStatusAttribute()
+    {
+        return $this->client ? $this->client->plan_status : 'purchase';
     }
 }
