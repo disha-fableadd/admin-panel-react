@@ -20,12 +20,18 @@ class ClientController extends Controller
 
     public function index()
     {
-        $defaultProductId = \App\Models\Setting::where('key', 'is_default_project')->value('value');
+        $defaultProjectValue = \App\Models\Setting::where('key', 'is_default_project')->value('value');
 
         $query = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest();
         
-        if ($defaultProductId) {
-            $query->where('product_id', $defaultProductId);
+        if ($defaultProjectValue) {
+            if (is_numeric($defaultProjectValue)) {
+                $query->where('product_id', $defaultProjectValue);
+            } else {
+                $query->whereHas('product', function($q) use ($defaultProjectValue) {
+                    $q->where('title', $defaultProjectValue);
+                });
+            }
         }
 
         return response()->json([
@@ -36,12 +42,18 @@ class ClientController extends Controller
 
     public function upcomingRenewals()
     {
-        $defaultProductId = \App\Models\Setting::where('key', 'is_default_project')->value('value');
+        $defaultProjectValue = \App\Models\Setting::where('key', 'is_default_project')->value('value');
 
         $query = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest();
         
-        if ($defaultProductId) {
-            $query->where('product_id', $defaultProductId);
+        if ($defaultProjectValue) {
+            if (is_numeric($defaultProjectValue)) {
+                $query->where('product_id', $defaultProjectValue);
+            } else {
+                $query->whereHas('product', function($q) use ($defaultProjectValue) {
+                    $q->where('title', $defaultProjectValue);
+                });
+            }
         }
 
         $clients = $query->get();
