@@ -67,7 +67,7 @@ class Client extends Model
         return $this->hasMany(Renewal::class);
     }
 
-    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'days_left', 'days_left_text'];
+    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'new_renewal_start_date', 'new_renewal_end_date'];
 
     public function getCalculatedStartDateAttribute()
     {
@@ -191,5 +191,43 @@ class Client extends Model
         }
 
         return $array;
+    }
+    public function getNewRenewalStartDateAttribute()
+    {
+        if (empty($this->expiry_date)) {
+            return \Carbon\Carbon::today()->format('Y-m-d');
+        }
+        
+        $expiryDate = \Carbon\Carbon::parse($this->expiry_date);
+        $today = \Carbon\Carbon::today();
+        
+        if ($expiryDate->isPast() && !$expiryDate->isToday()) {
+            return $today->format('Y-m-d');
+        }
+        
+        return $expiryDate->format('Y-m-d');
+    }
+
+    public function getNewRenewalEndDateAttribute()
+    {
+        $startDateStr = $this->new_renewal_start_date;
+        if (!$startDateStr) return null;
+
+        $start = \Carbon\Carbon::parse($startDateStr);
+        
+        $billingCycle = null;
+        if ($this->relationLoaded('setup') && $this->setup) {
+            $billingCycle = strtolower($this->setup->billing_cycle);
+        } elseif (!$this->relationLoaded('setup')) {
+            $setup = clone $this->setup()->first();
+            if ($setup) {
+                $billingCycle = strtolower($setup->billing_cycle);
+            }
+        }
+
+        if ($billingCycle === 'monthly' || $billingCycle === 'month') {
+            return $start->addMonth()->format('Y-m-d');
+        }
+        return $start->addYear()->format('Y-m-d');
     }
 }

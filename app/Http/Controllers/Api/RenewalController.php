@@ -46,7 +46,7 @@ class RenewalController extends Controller
                             ? strtolower($request->get('sort_dir', 'desc'))
                             : 'desc';
 
-        $query = Renewal::with(['client', 'client.product', 'client.membership'])
+        $query = Renewal::with(['client', 'client.product', 'client.membership', 'client.setup'])
             ->orderBy($sortBy, $sortDir);
 
         // Search by client name or brand name
@@ -159,7 +159,7 @@ class RenewalController extends Controller
      */
     public function show($id)
     {
-        $renewal = Renewal::with(['client', 'client.product', 'client.membership'])->find($id);
+        $renewal = Renewal::with(['client', 'client.product', 'client.membership', 'client.setup'])->find($id);
 
         if (!$renewal) {
             return response()->json(['success' => false, 'message' => 'Renewal not found.'], 404);
@@ -314,15 +314,18 @@ class RenewalController extends Controller
         }
 
         $validated = $request->validate([
-            'renewal_date' => 'nullable|date',
-            'new_end_date' => 'required|date',
-            'notes'        => 'nullable|string|max:1000',
+            'renewal_date'   => 'nullable|date',
+            'new_end_date'   => 'required|date',
+            'amount'         => 'required|numeric',
+            'payment_method' => 'nullable|string',
+            'notes'          => 'nullable|string|max:1000',
         ]);
 
         $renewal->update([
             'renewal_status' => 'Completed',
             'renewal_date'   => $validated['renewal_date'] ?? Carbon::today()->toDateString(),
             'new_end_date'   => $validated['new_end_date'],
+            'amount'         => $validated['amount'],
             'notes'          => $validated['notes'] ?? $renewal->notes,
         ]);
 
@@ -332,12 +335,24 @@ class RenewalController extends Controller
                 'expiry_date' => $validated['new_end_date'],
                 'status'      => 'Renewed',
             ]);
+
+            // Create Transaction for this renewal
+            \App\Models\Transaction::create([
+                'client_id'      => $renewal->client_id,
+                'amount'         => $validated['amount'],
+                'payment_method' => $validated['payment_method'] ?? 'Manual',
+                'payment_type'   => 'renewal',
+                'status'         => 'paid',
+                'currency'       => 'INR',
+                'user_id'        => auth()->id(),
+                'description'    => 'Renewal processed for client ' . $renewal->client->client_name,
+            ]);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Renewal processed successfully.',
-            'data'    => $renewal->fresh()->load('client.product'),
+            'data'    => $renewal->fresh()->load(['client.product', 'client.membership', 'client.setup']),
         ], 200);
     }
 
