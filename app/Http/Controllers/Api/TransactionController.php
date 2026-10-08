@@ -142,7 +142,13 @@ class TransactionController extends Controller
                         ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
                         ->first();
                     
-                    $newEndDate = \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                    $cycle = strtolower(trim($client->billing_title ?? ''));
+                    $newEndDate = null;
+                    if ($client->expiry_date) {
+                        $newEndDate = (strpos($cycle, 'month') !== false) 
+                            ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
+                            : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                    }
 
                     if ($renewal) {
                         $renewal->update([
