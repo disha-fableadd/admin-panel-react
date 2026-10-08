@@ -199,13 +199,21 @@ class RazorpayController extends Controller
                     ->first();
                     
                 if (!$existingRenewal) {
+                    $cycle = strtolower(trim($client->billing_title ?? ''));
+                    $newEndDate = null;
+                    if ($client->expiry_date) {
+                        $newEndDate = (strpos($cycle, 'month') !== false) 
+                            ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
+                            : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                    }
+
                     \App\Models\Renewal::create([
                         'client_id' => $client->id,
                         'renewal_status' => 'Upcoming',
                         'amount' => $request->amount,
                         'previous_end_date' => $client->expiry_date,
                         'renewal_date' => null,
-                        'new_end_date' => $client->expiry_date ? \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString() : null,
+                        'new_end_date' => $newEndDate,
                     ]);
                 }
             }
@@ -266,7 +274,13 @@ class RazorpayController extends Controller
                                 ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
                                 ->first();
                             
-                            $newEndDate = \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                            $cycle = strtolower(trim($client->billing_title ?? ''));
+                            $newEndDate = null;
+                            if ($client->expiry_date) {
+                                $newEndDate = (strpos($cycle, 'month') !== false) 
+                                    ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
+                                    : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                            }
 
                             if ($renewal) {
                                 $renewal->update([
