@@ -20,7 +20,7 @@ class ClientController extends Controller
 
     public function index()
     {
-        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup'])->latest()->get();
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
         return response()->json([
             'success' => true,
             'data' => $clients
@@ -29,7 +29,7 @@ class ClientController extends Controller
 
     public function upcomingRenewals()
     {
-        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup'])->latest()->get();
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
         
         $upcoming = $clients->filter(function ($client) {
             return in_array($client->membership_status, ['Expiring Soon', 'Expired']);
@@ -121,13 +121,13 @@ class ClientController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Client created successfully.',
-            'data' => $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup'])
+            'data' => $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])
         ], 201);
     }
 
     public function show(Client $client)
     {
-        $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup']);
+        $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals']);
         return response()->json([
             'success' => true,
             'data' => $client

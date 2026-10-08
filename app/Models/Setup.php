@@ -55,6 +55,6 @@ class Setup extends Model
 
     public function getPlanStatusAttribute()
     {
-        return $this->client ? $this->client->plan_status : 'purchase';
+        return $this->client ? $this->client->plan_status : 'Purchase';
     }
 }

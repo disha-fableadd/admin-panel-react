@@ -46,7 +46,7 @@ class RenewalController extends Controller
                             ? strtolower($request->get('sort_dir', 'desc'))
                             : 'desc';
 
-        $query = Renewal::with(['client', 'client.product', 'client.membership', 'client.setup'])
+        $query = Renewal::with(['client', 'client.product', 'client.project', 'client.membership', 'client.setup'])
             ->orderBy($sortBy, $sortDir);
 
         // Search by client name or brand name
@@ -116,6 +116,8 @@ class RenewalController extends Controller
                 'brand_name'        => $client?->brand_name ?? '',
                 'product_id'        => $product?->id,
                 'product_name'      => $product?->title ?? 'N/A',
+                'project_id'        => $client?->project?->id,
+                'project_name'      => $client?->project?->project_name ?? 'N/A',
                 'membership_id'     => $membership?->id,
                 'membership_plan'   => $membership?->plan_name ?? $membership?->billing_title ?? 'N/A',
                 'renewal_status'    => $statusLabel,
@@ -160,7 +162,7 @@ class RenewalController extends Controller
     public function show($id)
     {
         // $id is the client_id from clients/upcoming-renewals
-        $client = \App\Models\Client::with(['product', 'membership', 'setup'])->find($id);
+        $client = \App\Models\Client::with(['product', 'project', 'membership', 'setup'])->find($id);
 
         if (!$client) {
             return response()->json(['success' => false, 'message' => 'Client not found.'], 404);
@@ -225,6 +227,9 @@ class RenewalController extends Controller
                 'brand_name'        => $client?->brand_name ?? '',
                 'product_id'        => $product?->id,
                 'product_name'      => $product?->title ?? 'N/A',
+                'project_id'        => $client?->project?->id,
+                'project_name'      => $client?->project?->project_name ?? 'N/A',
+                'membership_id'     => $client?->membership?->id,
                 'membership_plan'   => $client?->membership?->plan_name ?? 'N/A',
                 'renewal_status'    => $renewal->renewal_status,
                 'amount'            => (float) $renewal->amount,
