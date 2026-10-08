@@ -80,59 +80,6 @@ class RenewalController extends Controller
         $total    = $query->count();
         $renewals = $query->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
-        $data = $renewals->map(function ($renewal) {
-            $client     = $renewal->client;
-            $product    = $client?->product;
-            $membership = $client?->membership;
-
-            // Compute days left & formatted label
-            $targetDate = $renewal->new_end_date ?? $client?->expiry_date;
-            $daysLeft = null;
-            $daysLeftText = 'N/A';
-
-            if ($targetDate) {
-                $target = Carbon::parse($targetDate)->startOfDay();
-                $today  = Carbon::today();
-                $daysLeft = (int) $today->diffInDays($target, false);
-
-                if ($daysLeft > 1) {
-                    $daysLeftText = "{$daysLeft} Days Left";
-                } elseif ($daysLeft === 1) {
-                    $daysLeftText = "1 Day Left";
-                } elseif ($daysLeft === 0) {
-                    $daysLeftText = "Today";
-                } else {
-                    $daysLeftText = "Expired (" . abs($daysLeft) . "d ago)";
-                }
-            }
-
-            // Determine computed status label
-            $statusLabel = $renewal->renewal_status;
-
-            return [
-                'id'                => $renewal->id,
-                'client_id'         => $client?->id,
-                'client_name'       => $client?->client_name ?? 'N/A',
-                'brand_name'        => $client?->brand_name ?? '',
-                'product_id'        => $product?->id,
-                'product_name'      => $product?->title ?? 'N/A',
-                'project_id'        => $client?->project?->id,
-                'project_name'      => $client?->project?->project_name ?? 'N/A',
-                'membership_id'     => $membership?->id,
-                'membership_plan'   => $membership?->plan_name ?? $membership?->billing_title ?? 'N/A',
-                'renewal_status'    => $statusLabel,
-                'amount'            => (float) $renewal->amount,
-                'previous_end_date' => $renewal->previous_end_date?->format('Y-m-d'),
-                'renewal_date'      => $renewal->renewal_date?->format('Y-m-d'),
-                'expiry_date'       => $renewal->new_end_date?->format('Y-m-d') ?? ($client?->expiry_date ? Carbon::parse($client->expiry_date)->format('Y-m-d') : null),
-                'new_end_date'      => $renewal->new_end_date?->format('Y-m-d'),
-                'days_left'         => $daysLeft,
-                'days_left_text'    => $daysLeftText,
-                'notes'             => $renewal->notes,
-                'created_at'        => $renewal->created_at,
-            ];
-        });
-
         // Summary counts for dashboard cards
         $upcomingCount  = Renewal::where('renewal_status', 'Upcoming')->count();
         $overdueCount   = Renewal::where('renewal_status', 'Overdue')->count();
@@ -140,7 +87,9 @@ class RenewalController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $data,
+            'data'    => $renewals,
+            'total'   => $total,
+            'page'    => $page,
             'summary' => [
                 'upcoming'  => $upcomingCount,
                 'overdue'   => $overdueCount,
@@ -195,53 +144,9 @@ class RenewalController extends Controller
         }
         $renewal->setRelation('client', $client);
 
-        $client  = $renewal->client;
-        $product = $client?->product;
-
-        $targetDate = $renewal->new_end_date ?? $client?->expiry_date;
-        $daysLeft = null;
-        $daysLeftText = 'N/A';
-
-        if ($targetDate) {
-            $target = Carbon::parse($targetDate)->startOfDay();
-            $today  = Carbon::today();
-            $daysLeft = (int) $today->diffInDays($target, false);
-
-            if ($daysLeft > 1) {
-                $daysLeftText = "{$daysLeft} Days Left";
-            } elseif ($daysLeft === 1) {
-                $daysLeftText = "1 Day Left";
-            } elseif ($daysLeft === 0) {
-                $daysLeftText = "Today";
-            } else {
-                $daysLeftText = "Expired (" . abs($daysLeft) . "d ago)";
-            }
-        }
-
         return response()->json([
             'success' => true,
-            'data'    => [
-                'id'                => $renewal->id,
-                'client_id'         => $client?->id,
-                'client_name'       => $client?->client_name ?? 'N/A',
-                'brand_name'        => $client?->brand_name ?? '',
-                'product_id'        => $product?->id,
-                'product_name'      => $product?->title ?? 'N/A',
-                'project_id'        => $client?->project?->id,
-                'project_name'      => $client?->project?->project_name ?? 'N/A',
-                'membership_id'     => $client?->membership?->id,
-                'membership_plan'   => $client?->membership?->plan_name ?? 'N/A',
-                'renewal_status'    => $renewal->renewal_status,
-                'amount'            => (float) $renewal->amount,
-                'previous_end_date' => $renewal->previous_end_date?->format('Y-m-d'),
-                'renewal_date'      => $renewal->renewal_date?->format('Y-m-d'),
-                'expiry_date'       => $renewal->new_end_date?->format('Y-m-d') ?? ($client?->expiry_date ? Carbon::parse($client->expiry_date)->format('Y-m-d') : null),
-                'new_end_date'      => $renewal->new_end_date?->format('Y-m-d'),
-                'days_left'         => $daysLeft,
-                'days_left_text'    => $daysLeftText,
-                'notes'             => $renewal->notes,
-                'created_at'        => $renewal->created_at,
-            ],
+            'data'    => $renewal,
         ], 200);
     }
 
@@ -277,7 +182,6 @@ class RenewalController extends Controller
             if ($client) {
                 $client->update([
                     'expiry_date' => $validated['new_end_date'],
-                    'status'      => 'Renewed',
                 ]);
             }
         }
@@ -317,7 +221,6 @@ class RenewalController extends Controller
             if ($newEnd) {
                 $renewal->client->update([
                     'expiry_date' => $newEnd,
-                    'status'      => 'Renewed',
                 ]);
             }
         }
@@ -384,7 +287,6 @@ class RenewalController extends Controller
         if ($renewal->client) {
             $renewal->client->update([
                 'expiry_date' => $validated['new_end_date'],
-                'status'      => 'Renewed',
             ]);
 
             // Create Transaction for this renewal
