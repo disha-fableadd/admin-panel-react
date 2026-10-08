@@ -75,8 +75,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     // Razorpay API
-    Route::post('/razorpay/create-order', [\App\Http\Controllers\Api\RazorpayController::class, 'createOrder']);
-    Route::post('/razorpay/verify-payment', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
     Route::post('/razorpay/payment-link', [\App\Http\Controllers\Api\RazorpayController::class, 'createPaymentLink']);
 
     // Transactions API
