@@ -115,22 +115,26 @@ class Client extends Model
         $target = \Carbon\Carbon::parse($endDate)->startOfDay();
         $today  = \Carbon\Carbon::today();
 
-        return (int) $today->diffInDays($target, false);
+        return (int) abs($today->diffInDays($target, false));
     }
 
     public function getDaysLeftTextAttribute(): string
     {
-        $days = $this->days_left;
-        if ($days === null) return 'N/A';
+        $endDate = $this->calculated_end_date;
+        if (!$endDate) return 'N/A';
 
-        if ($days > 1) {
-            return "{$days} Days Left";
-        } elseif ($days === 1) {
+        $target = \Carbon\Carbon::parse($endDate)->startOfDay();
+        $today  = \Carbon\Carbon::today();
+        $diff = (int) $today->diffInDays($target, false);
+
+        if ($diff > 1) {
+            return "{$diff} Days Left";
+        } elseif ($diff === 1) {
             return "1 Day Left";
-        } elseif ($days === 0) {
+        } elseif ($diff === 0) {
             return "Today";
         } else {
-            return "Expired (" . abs($days) . "d ago)";
+            return "Expired (" . abs($diff) . "d ago)";
         }
     }
 
@@ -238,8 +242,12 @@ class Client extends Model
 
     public function getPlanStatusAttribute()
     {
-        // If the client has a status of 'Renewed', they are on a renewal.
-        // Otherwise, it's considered their initial 'purchase'.
-        return strtolower($this->status) === 'renewed' ? 'renew' : 'purchase';
+        // A client is on a renewal if they have any completed renewal records
+        if ($this->relationLoaded('renewals')) {
+             $hasRenewals = $this->renewals->where('renewal_status', 'Completed')->count() > 0;
+        } else {
+             $hasRenewals = $this->renewals()->where('renewal_status', 'Completed')->exists();
+        }
+        return $hasRenewals ? 'Renewed' : 'Purchase';
     }
 }
