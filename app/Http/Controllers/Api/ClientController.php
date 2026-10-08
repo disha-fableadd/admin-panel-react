@@ -110,7 +110,7 @@ class ClientController extends Controller
                 'amount'         => (float) $paymentAmount,
                 'currency'       => 'INR',
                 'status'         => ($paymentType === 'cash') ? 'paid' : 'pending',
-                'payment_type'   => $paymentType,
+                'payment_type'   => 'purchase',
                 'payment_method' => ($paymentType === 'cash') ? 'Cash' : 'Online',
                 'description'    => 'Initial purchase for ' . $client->client_name . ' (' . ucfirst($paymentType) . ')',
             ]);
