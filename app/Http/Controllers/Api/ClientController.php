@@ -240,20 +240,23 @@ class ClientController extends Controller
         $id = $client->id;
 
         $hasSetup = \App\Models\Setup::where('client_id', $id)->exists();
-        $hasTransactions = \App\Models\Transaction::where('client_id', $id)->exists();
         $hasRenewals = \App\Models\Renewal::where('client_id', $id)->exists();
 
-        if ($hasSetup || $hasTransactions || $hasRenewals) {
+        if ($hasSetup || $hasRenewals) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot delete this client because they have existing setups, transactions, or renewals. Please delete those records first.'
+                'message' => 'Cannot delete this client because they have existing setups or renewals. Please delete those records first.'
             ], 400);
         }
 
+        // Automatically delete associated transactions
+        \App\Models\Transaction::where('client_id', $id)->delete();
+
         $client->delete();
+        
         return response()->json([
             'success' => true,
-            'message' => 'Client deleted successfully.'
+            'message' => 'Client and associated transactions deleted successfully.'
         ]);
     }
 }
