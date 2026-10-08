@@ -192,6 +192,24 @@ class RazorpayController extends Controller
                 'payment_method' => 'Razorpay Link',
             ]);
 
+            // If it's a renewal, make sure an Upcoming renewal record exists in the table
+            if (($request->payment_type ?? 'purchase') === 'renewal' && $client) {
+                $existingRenewal = \App\Models\Renewal::where('client_id', $client->id)
+                    ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
+                    ->first();
+                    
+                if (!$existingRenewal) {
+                    \App\Models\Renewal::create([
+                        'client_id' => $client->id,
+                        'renewal_status' => 'Upcoming',
+                        'amount' => $request->amount,
+                        'previous_end_date' => $client->expiry_date,
+                        'renewal_date' => null,
+                        'new_end_date' => $client->expiry_date ? \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString() : null,
+                    ]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
