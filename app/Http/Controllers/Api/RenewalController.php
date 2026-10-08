@@ -159,11 +159,39 @@ class RenewalController extends Controller
      */
     public function show($id)
     {
-        $renewal = Renewal::with(['client', 'client.product', 'client.membership', 'client.setup'])->find($id);
+        // $id is the client_id from clients/upcoming-renewals
+        $client = \App\Models\Client::with(['product', 'membership', 'setup'])->find($id);
 
-        if (!$renewal) {
-            return response()->json(['success' => false, 'message' => 'Renewal not found.'], 404);
+        if (!$client) {
+            return response()->json(['success' => false, 'message' => 'Client not found.'], 404);
         }
+
+        // Try to find an existing pending renewal
+        $renewal = Renewal::where('client_id', $client->id)
+            ->whereIn('renewal_status', ['Upcoming', 'Overdue'])
+            ->first();
+
+        // If no renewal record exists yet, mock one in memory for the frontend
+        if (!$renewal) {
+            $renewalAmount = 0;
+            if (is_array($client->renewal_amount) && !empty($client->renewal_amount)) {
+                $renewalAmount = (float) array_sum($client->renewal_amount);
+            } elseif (is_numeric($client->renewal_amount)) {
+                $renewalAmount = (float) $client->renewal_amount;
+            }
+
+            $renewal = new Renewal([
+                'id'                => null,
+                'client_id'         => $client->id,
+                'renewal_status'    => 'Upcoming',
+                'amount'            => $renewalAmount,
+                'previous_end_date' => $client->expiry_date,
+                'renewal_date'      => null,
+                'new_end_date'      => null,
+                'notes'             => null,
+            ]);
+        }
+        $renewal->setRelation('client', $client);
 
         $client  = $renewal->client;
         $product = $client?->product;
@@ -307,10 +335,11 @@ class RenewalController extends Controller
      */
     public function process(Request $request, $id)
     {
-        $renewal = Renewal::find($id);
+        // $id is the client_id
+        $client = \App\Models\Client::find($id);
 
-        if (!$renewal) {
-            return response()->json(['success' => false, 'message' => 'Renewal not found.'], 404);
+        if (!$client) {
+            return response()->json(['success' => false, 'message' => 'Client not found.'], 404);
         }
 
         $validated = $request->validate([
@@ -321,13 +350,30 @@ class RenewalController extends Controller
             'notes'          => 'nullable|string|max:1000',
         ]);
 
-        $renewal->update([
-            'renewal_status' => 'Completed',
-            'renewal_date'   => $validated['renewal_date'] ?? Carbon::today()->toDateString(),
-            'new_end_date'   => $validated['new_end_date'],
-            'amount'         => $validated['amount'],
-            'notes'          => $validated['notes'] ?? $renewal->notes,
-        ]);
+        // Find existing pending renewal or create a new one
+        $renewal = Renewal::where('client_id', $client->id)
+            ->whereIn('renewal_status', ['Upcoming', 'Overdue'])
+            ->first();
+
+        if ($renewal) {
+            $renewal->update([
+                'renewal_status' => 'Completed',
+                'renewal_date'   => $validated['renewal_date'] ?? Carbon::today()->toDateString(),
+                'new_end_date'   => $validated['new_end_date'],
+                'amount'         => $validated['amount'],
+                'notes'          => $validated['notes'] ?? $renewal->notes,
+            ]);
+        } else {
+            $renewal = Renewal::create([
+                'client_id'         => $client->id,
+                'renewal_status'    => 'Completed',
+                'amount'            => $validated['amount'],
+                'previous_end_date' => $client->expiry_date,
+                'renewal_date'      => $validated['renewal_date'] ?? Carbon::today()->toDateString(),
+                'new_end_date'      => $validated['new_end_date'],
+                'notes'             => $validated['notes'] ?? null,
+            ]);
+        }
 
         // Update the client's expiry and status
         if ($renewal->client) {

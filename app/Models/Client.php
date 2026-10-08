@@ -67,7 +67,7 @@ class Client extends Model
         return $this->hasMany(Renewal::class);
     }
 
-    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'new_renewal_start_date', 'new_renewal_end_date'];
+    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'new_renewal_start_date', 'new_renewal_end_date', 'plan_status'];
 
     public function getCalculatedStartDateAttribute()
     {
@@ -194,6 +194,11 @@ class Client extends Model
     }
     public function getNewRenewalStartDateAttribute()
     {
+        $status = $this->membership_status;
+        if (!in_array($status, ['Expired', 'Expiring Soon'])) {
+            return null;
+        }
+
         if (empty($this->expiry_date)) {
             return \Carbon\Carbon::today()->format('Y-m-d');
         }
@@ -229,5 +234,12 @@ class Client extends Model
             return $start->addMonth()->format('Y-m-d');
         }
         return $start->addYear()->format('Y-m-d');
+    }
+
+    public function getPlanStatusAttribute()
+    {
+        // If the client has a status of 'Renewed', they are on a renewal.
+        // Otherwise, it's considered their initial 'purchase'.
+        return strtolower($this->status) === 'renewed' ? 'renew' : 'purchase';
     }
 }
