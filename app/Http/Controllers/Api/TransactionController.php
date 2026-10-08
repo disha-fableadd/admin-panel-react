@@ -136,18 +136,37 @@ class TransactionController extends Controller
         // If manually marked as paid, and it's a renewal, fulfill it automatically
         if (isset($validated['status']) && $validated['status'] === 'paid' && $transaction->payment_type === 'renewal') {
             if ($transaction->client_id) {
-                $renewal = \App\Models\Renewal::where('client_id', $transaction->client_id)
-                    ->whereIn('renewal_status', ['Upcoming', 'Overdue'])
-                    ->first();
-                
-                if ($renewal && $renewal->new_end_date) {
-                    $renewal->update([
-                        'renewal_status' => 'Completed',
-                        'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                    ]);
-                    $renewal->client->update([
-                        'expiry_date' => $renewal->new_end_date
-                    ]);
+                $client = \App\Models\Client::find($transaction->client_id);
+                if ($client) {
+                    $renewal = \App\Models\Renewal::where('client_id', $transaction->client_id)
+                        ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
+                        ->first();
+                    
+                    $newEndDate = \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+
+                    if ($renewal) {
+                        $renewal->update([
+                            'renewal_status' => 'Completed',
+                            'renewal_date' => \Carbon\Carbon::today()->toDateString(),
+                            'amount' => $transaction->amount,
+                            'new_end_date' => $renewal->new_end_date ?? $newEndDate,
+                        ]);
+                        $client->update([
+                            'expiry_date' => $renewal->new_end_date ?? $newEndDate
+                        ]);
+                    } else {
+                        \App\Models\Renewal::create([
+                            'client_id' => $client->id,
+                            'renewal_status' => 'Completed',
+                            'amount' => $transaction->amount,
+                            'previous_end_date' => $client->expiry_date,
+                            'renewal_date' => \Carbon\Carbon::today()->toDateString(),
+                            'new_end_date' => $newEndDate,
+                        ]);
+                        $client->update([
+                            'expiry_date' => $newEndDate
+                        ]);
+                    }
                 }
             }
         }
