@@ -20,43 +20,16 @@ class ClientController extends Controller
 
     public function index()
     {
-        $defaultProjectValue = \App\Models\Setting::where('key', 'is_default_project')->value('value');
-
-        $query = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest();
-        
-        if ($defaultProjectValue) {
-            if (is_numeric($defaultProjectValue)) {
-                $query->where('product_id', $defaultProjectValue);
-            } else {
-                $query->whereHas('product', function($q) use ($defaultProjectValue) {
-                    $q->where('title', $defaultProjectValue);
-                });
-            }
-        }
-
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
         return response()->json([
             'success' => true,
-            'data' => $query->get()
+            'data' => $clients
         ]);
     }
 
     public function upcomingRenewals()
     {
-        $defaultProjectValue = \App\Models\Setting::where('key', 'is_default_project')->value('value');
-
-        $query = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest();
-        
-        if ($defaultProjectValue) {
-            if (is_numeric($defaultProjectValue)) {
-                $query->where('product_id', $defaultProjectValue);
-            } else {
-                $query->whereHas('product', function($q) use ($defaultProjectValue) {
-                    $q->where('title', $defaultProjectValue);
-                });
-            }
-        }
-
-        $clients = $query->get();
+        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
         
         $upcoming = $clients->filter(function ($client) {
             return in_array($client->membership_status, ['Expiring Soon', 'Expired']) || $client->plan_status === 'Renewed';
