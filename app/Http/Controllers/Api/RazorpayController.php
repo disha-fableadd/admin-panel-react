@@ -143,6 +143,7 @@ class RazorpayController extends Controller
             'client_id' => 'required|integer',
             'description' => 'nullable|string',
             'currency' => 'nullable|string',
+            'payment_type' => 'nullable|string|in:purchase,renewal',
         ]);
 
         $credentials = $this->getRazorpayCredentials();
@@ -187,6 +188,8 @@ class RazorpayController extends Controller
                 'currency' => $linkData['currency'],
                 'status' => 'pending', // Pending payment link
                 'description' => $request->description,
+                'payment_type' => $request->payment_type ?? 'purchase',
+                'payment_method' => 'Razorpay Link',
             ]);
 
             return response()->json([
@@ -237,13 +240,20 @@ class RazorpayController extends Controller
                         'razorpay_payment_id' => $paymentId,
                     ]);
 
-                    // Optional: Automatically update client's expiry date if it's a renewal
-                    if ($transaction->client_id) {
-                        $client = \App\Models\Client::find($transaction->client_id);
-                        if ($client) {
-                            $client->status = 'Active';
-                            // $client->expiry_date = Carbon::parse($client->expiry_date)->addYear();
-                            $client->save();
+                    // Automatically update client's expiry date if it's a renewal
+                    if ($transaction->client_id && $transaction->payment_type === 'renewal') {
+                        $renewal = \App\Models\Renewal::where('client_id', $transaction->client_id)
+                            ->whereIn('renewal_status', ['Upcoming', 'Overdue'])
+                            ->first();
+                        
+                        if ($renewal && $renewal->new_end_date) {
+                            $renewal->update([
+                                'renewal_status' => 'Completed',
+                                'renewal_date' => \Carbon\Carbon::today()->toDateString(),
+                            ]);
+                            $renewal->client->update([
+                                'expiry_date' => $renewal->new_end_date
+                            ]);
                         }
                     }
                 }

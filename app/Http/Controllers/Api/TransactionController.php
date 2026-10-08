@@ -133,10 +133,29 @@ class TransactionController extends Controller
 
         $transaction->update($validated);
 
+        // If manually marked as paid, and it's a renewal, fulfill it automatically
+        if (isset($validated['status']) && $validated['status'] === 'paid' && $transaction->payment_type === 'renewal') {
+            if ($transaction->client_id) {
+                $renewal = \App\Models\Renewal::where('client_id', $transaction->client_id)
+                    ->whereIn('renewal_status', ['Upcoming', 'Overdue'])
+                    ->first();
+                
+                if ($renewal && $renewal->new_end_date) {
+                    $renewal->update([
+                        'renewal_status' => 'Completed',
+                        'renewal_date' => \Carbon\Carbon::today()->toDateString(),
+                    ]);
+                    $renewal->client->update([
+                        'expiry_date' => $renewal->new_end_date
+                    ]);
+                }
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Transaction updated successfully.',
-            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'client.setup', 'user'])
+            'data'    => $transaction->fresh()->load(['client.membership', 'client.product', 'client.project', 'client.setup', 'user'])
         ], 200);
     }
 }
