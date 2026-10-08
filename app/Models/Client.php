@@ -67,7 +67,7 @@ class Client extends Model
         return $this->hasMany(Renewal::class);
     }
 
-    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'new_renewal_start_date', 'new_renewal_end_date', 'plan_status'];
+    protected $appends = ['membership_status', 'calculated_start_date', 'calculated_end_date', 'new_renewal_start_date', 'new_renewal_end_date', 'plan_status', 'days_left', 'days_left_text'];
 
     public function getCalculatedStartDateAttribute()
     {
