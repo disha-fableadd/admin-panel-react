@@ -22,7 +22,7 @@ class TransactionController extends Controller
 
     public function index(Request $request)
     {
-        $query = Transaction::with(['client.membership', 'client.product', 'client.project', 'user'])->latest();
+        $query = Transaction::with(['client.membership', 'client.product', 'client.project', 'client.setup', 'user'])->latest();
 
         if ($request->filled('payment_type')) {
             $query->where('payment_type', $request->payment_type);
@@ -68,16 +68,17 @@ class TransactionController extends Controller
             'description'         => 'nullable|string',
         ]);
 
-        $validated['user_id']  = auth()->id();
-        $validated['currency'] = $validated['currency'] ?? 'INR';
-        $validated['status']   = $validated['status'] ?? 'paid';
+        $validated['user_id']      = auth()->id();
+        $validated['currency']     = $validated['currency'] ?? 'INR';
+        $validated['status']       = $validated['status'] ?? 'paid';
+        $validated['payment_type'] = $validated['payment_type'] ?? 'purchase';
 
         $transaction = Transaction::create($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Transaction created successfully.',
-            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'user'])
+            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'client.setup', 'user'])
         ], 201);
     }
 
@@ -86,7 +87,7 @@ class TransactionController extends Controller
      */
     public function show($id)
     {
-        $transaction = Transaction::with(['client.membership', 'client.product', 'client.project', 'user'])->find($id);
+        $transaction = Transaction::with(['client.membership', 'client.product', 'client.project', 'client.setup', 'user'])->find($id);
 
         if (!$transaction) {
             return response()->json([
@@ -135,7 +136,7 @@ class TransactionController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Transaction updated successfully.',
-            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'user'])
+            'data'    => $transaction->load(['client.membership', 'client.product', 'client.project', 'client.setup', 'user'])
         ], 200);
     }
 }
