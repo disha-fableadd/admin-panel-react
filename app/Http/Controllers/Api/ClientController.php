@@ -20,16 +20,31 @@ class ClientController extends Controller
 
     public function index()
     {
-        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
+        $defaultProductId = \App\Models\Setting::where('key', 'is_default_project')->value('value');
+
+        $query = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest();
+        
+        if ($defaultProductId) {
+            $query->where('product_id', $defaultProductId);
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $clients
+            'data' => $query->get()
         ]);
     }
 
     public function upcomingRenewals()
     {
-        $clients = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest()->get();
+        $defaultProductId = \App\Models\Setting::where('key', 'is_default_project')->value('value');
+
+        $query = Client::with(['product', 'project', 'membership.project', 'projectModules', 'setup', 'renewals'])->latest();
+        
+        if ($defaultProductId) {
+            $query->where('product_id', $defaultProductId);
+        }
+
+        $clients = $query->get();
         
         $upcoming = $clients->filter(function ($client) {
             return in_array($client->membership_status, ['Expiring Soon', 'Expired']) || $client->plan_status === 'Renewed';
