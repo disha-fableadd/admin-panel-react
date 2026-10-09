@@ -157,7 +157,7 @@ class DashboardController extends Controller
         ];
 
         // 3. Recent/Upcoming Renewals (Latest 5 from renewals table)
-        $upcomingRenewals = (clone $renewalQuery)->with(['client.product', 'client.membership'])
+        $upcomingRenewals = (clone $renewalQuery)->with(['client.product', 'client.project', 'client.membership'])
             ->orderBy('renewal_date', 'desc')
             ->take(5)
             ->get()
@@ -168,8 +168,9 @@ class DashboardController extends Controller
                     'id' => $renewal->id,
                     'client_name' => $client ? $client->client_name : null,
                     'brand_name' => $client ? $client->brand_name : null,
-                    'product' => $client && $client->product ? $client->product->name : null,
-                    'membership' => $client && $client->membership ? $client->membership->plan_name : null,
+                    'product' => $client ? $client->product : null,
+                    'project' => $client ? $client->project : null,
+                    'membership' => $client ? $client->membership : null,
                     'end_date' => $endDate ? Carbon::parse($endDate)->format('d M Y') : null,
                     'days_left' => $endDate ? Carbon::parse($endDate)->diffInDays(Carbon::today()) : 0,
                     'status' => $renewal->renewal_status ?? 'Renewed'
