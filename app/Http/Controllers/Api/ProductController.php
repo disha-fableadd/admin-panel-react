@@ -49,9 +49,11 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
+            'title' => 'required|string|max:255|unique:products,title',
             'description' => 'nullable|string',
             'status' => 'nullable|in:Active,Inactive',
+        ], [
+            'title.unique' => 'A product with this name already exists.'
         ]);
 
         if (!isset($validated['status'])) {
@@ -104,9 +106,11 @@ class ProductController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
+            'title' => 'required|string|max:255|unique:products,title,' . $id,
             'description' => 'nullable|string',
             'status' => 'nullable|in:Active,Inactive',
+        ], [
+            'title.unique' => 'A product with this name already exists.'
         ]);
 
         $product->update($validated);
