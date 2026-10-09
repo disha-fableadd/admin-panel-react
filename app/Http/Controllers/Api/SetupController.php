@@ -67,10 +67,18 @@ class SetupController extends Controller
             'assigned_modules' => $validated['assignedModules'] ?? [],
         ];
 
+        $client = \App\Models\Client::find($validated['clientId']);
+        
+        if ($client && $client->status === 'Pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot setup a project. The transaction is pending and membership is not ongoing.'
+            ], 400);
+        }
+
         $setup = Setup::create($setupData);
 
         // Update the client when setup is created with plan details
-        $client = \App\Models\Client::find($validated['clientId']);
         if ($client) {
             $clientUpdateData = [];
             
