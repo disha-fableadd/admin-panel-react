@@ -258,14 +258,19 @@ class RenewalController extends Controller
             'notes'          => 'nullable|string|max:1000',
         ]);
 
+        $paymentMethod = $validated['payment_method'] ?? 'Manual';
+        $isOnlinePayment = in_array(strtolower($paymentMethod), ['razorpay link', 'online']);
+
         // Find existing pending renewal or create a new one
         $renewal = Renewal::where('client_id', $client->id)
             ->whereIn('renewal_status', ['Upcoming', 'Overdue'])
             ->first();
 
+        $statusToSet = $isOnlinePayment ? 'Pending' : 'Completed';
+
         if ($renewal) {
             $renewal->update([
-                'renewal_status' => 'Completed',
+                'renewal_status' => $statusToSet,
                 'renewal_date'   => $validated['renewal_date'] ?? Carbon::today()->toDateString(),
                 'new_end_date'   => $validated['new_end_date'],
                 'amount'         => $validated['amount'],
@@ -274,7 +279,7 @@ class RenewalController extends Controller
         } else {
             $renewal = Renewal::create([
                 'client_id'         => $client->id,
-                'renewal_status'    => 'Completed',
+                'renewal_status'    => $statusToSet,
                 'amount'            => $validated['amount'],
                 'previous_end_date' => $client->expiry_date,
                 'renewal_date'      => $validated['renewal_date'] ?? Carbon::today()->toDateString(),
@@ -283,8 +288,8 @@ class RenewalController extends Controller
             ]);
         }
 
-        // Update the client's expiry and status
-        if ($renewal->client) {
+        // Only update client expiry and create a paid transaction if this is a manual/cash completion
+        if (!$isOnlinePayment && $renewal->client) {
             $renewal->client->update([
                 'expiry_date' => $validated['new_end_date'],
             ]);
@@ -293,7 +298,7 @@ class RenewalController extends Controller
             \App\Models\Transaction::create([
                 'client_id'      => $renewal->client_id,
                 'amount'         => $validated['amount'],
-                'payment_method' => $validated['payment_method'] ?? 'Manual',
+                'payment_method' => $paymentMethod,
                 'payment_type'   => 'renewal',
                 'status'         => 'paid',
                 'currency'       => 'INR',
