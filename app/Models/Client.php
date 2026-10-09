@@ -140,8 +140,14 @@ class Client extends Model
 
     public function getMembershipStatusAttribute()
     {
-        if ($this->status === 'Pending') {
-            return 'Pending';
+        if ($this->id) {
+            $hasPending = \App\Models\Transaction::where('client_id', $this->id)
+                ->where('payment_type', 'purchase')
+                ->where('status', 'pending')
+                ->exists();
+            if ($hasPending) {
+                return 'Pending';
+            }
         }
 
         $endDate = $this->calculated_end_date;

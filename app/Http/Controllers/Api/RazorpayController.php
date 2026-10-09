@@ -266,13 +266,6 @@ class RazorpayController extends Controller
                         'razorpay_payment_id' => $paymentId,
                     ]);
 
-                    if ($transaction->client_id && $transaction->payment_type === 'purchase') {
-                        $client = \App\Models\Client::find($transaction->client_id);
-                        if ($client && $client->status === 'Pending') {
-                            $client->update(['status' => 'Active']);
-                        }
-                    }
-
                     // Automatically update client's expiry date if it's a renewal
                     if ($transaction->client_id && $transaction->payment_type === 'renewal') {
                         $client = \App\Models\Client::find($transaction->client_id);
@@ -327,13 +320,6 @@ class RazorpayController extends Controller
                         'status' => 'paid',
                         'razorpay_payment_id' => $paymentId,
                     ]);
-
-                    if ($transaction->client_id && $transaction->payment_type === 'purchase') {
-                        $client = \App\Models\Client::find($transaction->client_id);
-                        if ($client && $client->status === 'Pending') {
-                            $client->update(['status' => 'Active']);
-                        }
-                    }
                 }
             }
         }
