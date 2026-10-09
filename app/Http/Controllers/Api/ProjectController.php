@@ -50,9 +50,11 @@ class ProjectController extends Controller
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:projects,name',
             'description' => 'nullable|string',
             'status' => 'nullable|string|max:50',
+        ], [
+            'name.unique' => 'A project with this name already exists.'
         ]);
 
         if (!isset($validated['status'])) {
@@ -107,9 +109,11 @@ class ProjectController extends Controller
 
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:projects,name,' . $id,
             'description' => 'nullable|string',
             'status' => 'nullable|string|max:50',
+        ], [
+            'name.unique' => 'A project with this name already exists.'
         ]);
 
         $project->update($validated);
