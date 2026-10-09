@@ -140,6 +140,10 @@ class Client extends Model
 
     public function getMembershipStatusAttribute()
     {
+        if ($this->status === 'Pending') {
+            return 'Pending';
+        }
+
         $endDate = $this->calculated_end_date;
         if (!$endDate) return null;
 
