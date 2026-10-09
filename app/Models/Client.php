@@ -148,6 +148,16 @@ class Client extends Model
             if ($hasPending) {
                 return 'Pending';
             }
+
+            // If a client was just created and has no purchase transactions yet, 
+            // they are in the process of generating a payment link.
+            $hasAnyPurchase = \App\Models\Transaction::where('client_id', $this->id)
+                ->where('payment_type', 'purchase')
+                ->exists();
+                
+            if (!$hasAnyPurchase && $this->created_at && $this->created_at->diffInMinutes(now()) < 5) {
+                return 'Pending';
+            }
         }
 
         $endDate = $this->calculated_end_date;
