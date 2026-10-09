@@ -62,6 +62,13 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
+        \App\Models\Project::create([
+            'product_id' => $product->id,
+            'name' => $product->title,
+            'description' => $product->description,
+            'status' => $product->status,
+        ]);
+
         $this->notifyAllUsers('New Product Created', 'A new product was added.');
 
         return response()->json([
