@@ -69,7 +69,7 @@ class SetupController extends Controller
 
         $client = \App\Models\Client::find($validated['clientId']);
         
-        if ($client && $client->status === 'Pending') {
+        if ($client && $client->membership_status === 'Pending') {
             return response()->json([
                 'success' => false,
                 'message' => 'Cannot setup a project. The transaction is pending and membership is not ongoing.'
