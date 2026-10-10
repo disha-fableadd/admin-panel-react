@@ -30,6 +30,21 @@ class ProjectModuleController extends Controller
             });
         }
 
+        $productId = $request->query('product_id');
+        if ($productId) {
+            $query->where('product_id', $productId);
+        }
+
+        $clientId = $request->query('client_id');
+        if ($clientId) {
+            $query->where(function($q) use ($clientId) {
+                $q->whereNull('client_id')
+                  ->orWhere('client_id', '[]')
+                  ->orWhereJsonContains('client_id', (string)$clientId)
+                  ->orWhereJsonContains('client_id', (int)$clientId);
+            });
+        }
+
         return response()->json([
             'success' => true,
             'data' => $query->latest()->get()
