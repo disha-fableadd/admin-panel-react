@@ -163,26 +163,23 @@ class DashboardController extends Controller
             'cancelled' => (clone $clientQuery)->where('status', 'Inactive')->count(), // Or 'Cancelled' if it exists
         ];
 
-        // 3. Recent/Upcoming Renewals (Latest 5 from renewals table)
-        $upcomingRenewals = (clone $renewalQuery)->with(['client.product', 'client.project', 'client.membership'])
-            ->orderBy('renewal_date', 'desc')
-            ->take(5)
-            ->get()
-            ->map(function ($renewal) {
-                $client = $renewal->client;
-                $endDate = $renewal->new_end_date ?? $renewal->previous_end_date;
-                return [
-                    'id' => $renewal->id,
-                    'client_name' => $client ? $client->client_name : null,
-                    'brand_name' => $client ? $client->brand_name : null,
-                    'product' => $client ? $client->product : null,
-                    'project' => $client ? $client->project : null,
-                    'membership' => $client ? $client->membership : null,
-                    'end_date' => $endDate ? Carbon::parse($endDate)->format('d M Y') : null,
-                    'days_left' => $endDate ? Carbon::parse($endDate)->diffInDays(Carbon::today()) : 0,
-                    'status' => $renewal->renewal_status ?? 'Renewed'
-                ];
-            });
+        // 3. Recent/Upcoming Renewals (Latest 5 from clients with Expired/Expiring Soon status)
+        $upcomingRenewals = $clientsForRenewals->filter(function ($client) {
+            return in_array($client->membership_status, ['Expired', 'Expiring Soon']);
+        })->sortBy('calculated_end_date')->take(5)->map(function ($client) {
+            $endDate = $client->calculated_end_date;
+            return [
+                'id' => $client->id,
+                'client_name' => $client->client_name,
+                'brand_name' => $client->brand_name,
+                'product' => $client->product,
+                'project' => $client->project,
+                'membership' => $client->membership,
+                'end_date' => $endDate ? Carbon::parse($endDate)->format('d M Y') : null,
+                'days_left' => $client->days_left ?? 0,
+                'status' => $client->membership_status
+            ];
+        })->values();
 
         // 4. Products (Latest 4)
         $products = Product::latest()->take(4)->get();
