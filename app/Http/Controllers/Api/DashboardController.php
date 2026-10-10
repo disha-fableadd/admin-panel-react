@@ -97,7 +97,10 @@ class DashboardController extends Controller
             $q->where('product_id', $productId);
         });
 
-        $transactionQuery = Transaction::when($productId, function ($q) use ($productId) {
+        $transactionQuery = Transaction::where(function ($query) {
+            $query->where('payment_method', '!=', 'Manual')
+                  ->orWhereNull('payment_method');
+        })->when($productId, function ($q) use ($productId) {
             $q->whereHas('client', function ($q2) use ($productId) {
                 $q2->where('product_id', $productId);
             });
