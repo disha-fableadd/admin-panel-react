@@ -118,13 +118,17 @@ class DashboardController extends Controller
             ->whereBetween('expiry_date', [Carbon::now(), Carbon::now()->addDays(30)])
             ->count();
 
-        // Renewals from renewals table
         $renewalQuery = \App\Models\Renewal::when($productId, function ($q) use ($productId) {
             $q->whereHas('client', function ($q2) use ($productId) {
                 $q2->where('product_id', $productId);
             });
         });
-        $renewals = (clone $renewalQuery)->count();
+
+        // Renewals: count clients whose membership status is Expired or Expiring Soon
+        $clientsForRenewals = (clone $clientQuery)->get();
+        $renewals = $clientsForRenewals->filter(function ($client) {
+            return in_array($client->membership_status, ['Expired', 'Expiring Soon']);
+        })->count();
 
         // Real transaction data
         $totalTransactions      = (clone $transactionQuery)->count();
