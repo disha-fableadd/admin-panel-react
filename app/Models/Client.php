@@ -186,7 +186,12 @@ class Client extends Model
         $array = parent::toArray();
 
         $assignedModules = null;
-        if (isset($array['setup']['assigned_modules']) && is_array($array['setup']['assigned_modules'])) {
+        if (isset($array['project_modules']) && is_array($array['project_modules'])) {
+            $assignedModules = array_column($array['project_modules'], 'name');
+            if (isset($array['setup'])) {
+                $array['setup']['assigned_modules'] = $assignedModules;
+            }
+        } elseif (isset($array['setup']['assigned_modules']) && is_array($array['setup']['assigned_modules'])) {
             $assignedModules = $array['setup']['assigned_modules'];
         } elseif ($this->relationLoaded('setup') && $this->setup && is_array($this->setup->assigned_modules)) {
             $assignedModules = $this->setup->assigned_modules;
