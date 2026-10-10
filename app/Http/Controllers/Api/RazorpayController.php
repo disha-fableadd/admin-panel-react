@@ -177,20 +177,41 @@ class RazorpayController extends Controller
 
         if ($response->successful()) {
             $linkData = $response->json();
+            $paymentType = $request->payment_type ?? 'purchase';
             
-            // Create a pending transaction record
-            Transaction::create([
-                'user_id' => auth()->id(),
-                'client_id' => $request->client_id,
-                'payment_link_id' => $linkData['id'],
-                'short_url' => $linkData['short_url'],
-                'amount' => $request->amount,
-                'currency' => $linkData['currency'],
-                'status' => 'pending', // Pending payment link
-                'description' => $request->description,
-                'payment_type' => $request->payment_type ?? 'purchase',
-                'payment_method' => 'Razorpay Link',
-            ]);
+            $existingTransaction = null;
+            if ($client && $client->plan_status === 'Purchase' && $paymentType === 'purchase') {
+                $existingTransaction = Transaction::where('client_id', $request->client_id)
+                    ->where('payment_type', 'purchase')
+                    ->where('status', 'pending')
+                    ->first();
+            }
+
+            if ($existingTransaction) {
+                $existingTransaction->update([
+                    'user_id' => auth()->id(),
+                    'payment_link_id' => $linkData['id'],
+                    'short_url' => $linkData['short_url'],
+                    'amount' => $request->amount,
+                    'currency' => $linkData['currency'],
+                    'description' => $request->description,
+                    'payment_method' => 'Razorpay Link',
+                ]);
+            } else {
+                // Create a pending transaction record
+                Transaction::create([
+                    'user_id' => auth()->id(),
+                    'client_id' => $request->client_id,
+                    'payment_link_id' => $linkData['id'],
+                    'short_url' => $linkData['short_url'],
+                    'amount' => $request->amount,
+                    'currency' => $linkData['currency'],
+                    'status' => 'pending', // Pending payment link
+                    'description' => $request->description,
+                    'payment_type' => $paymentType,
+                    'payment_method' => 'Razorpay Link',
+                ]);
+            }
 
             // If it's a renewal, make sure an Upcoming renewal record exists in the table
             if (($request->payment_type ?? 'purchase') === 'renewal' && $client) {
