@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientAuthController;
+use App\Http\Controllers\Api\ProjectController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -24,6 +25,11 @@ Route::post('/client/login', [ClientAuthController::class, 'login']);
 Route::post('/client-login', [ClientAuthController::class, 'login']);
 Route::get('/client/data/{id?}', [ClientAuthController::class, 'getClientData']);
 Route::post('/client/data', [ClientAuthController::class, 'getClientData']);
+
+// Projects API (Without Auth - product_id wise)
+Route::get('/projects', [ProjectController::class, 'getProjectsByProduct']);
+Route::get('/projects/by-product/{productId?}', [ProjectController::class, 'getProjectsByProduct']);
+Route::get('/products/{productId}/projects', [ProjectController::class, 'getProjectsByProduct']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -44,8 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Products API
     Route::apiResource('products', \App\Http\Controllers\Api\ProductController::class);
 
-    // Projects API
-    Route::apiResource('projects', \App\Http\Controllers\Api\ProjectController::class);
+    // Projects API (store, show, update, delete)
+    Route::apiResource('projects', \App\Http\Controllers\Api\ProjectController::class)->except(['index']);
 
     // Project Modules API
     Route::apiResource('project-modules', \App\Http\Controllers\Api\ProjectModuleController::class);

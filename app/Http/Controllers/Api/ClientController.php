@@ -70,6 +70,44 @@ class ClientController extends Controller
             'payment_amount' => 'nullable|numeric',
         ]);
 
+        // Validate that the same email cannot purchase the exact same project twice
+        if (!empty($validated['work_email'])) {
+            $email = trim(strtolower($validated['work_email']));
+            $productId = $validated['product_id'];
+            $projectId = $validated['project_id'] ?? null;
+
+            $duplicateQuery = Client::whereRaw('LOWER(TRIM(work_email)) = ?', [$email])
+                ->where('product_id', $productId);
+
+            if (!empty($projectId)) {
+                $duplicateQuery->where('project_id', $projectId);
+            } else {
+                $duplicateQuery->whereNull('project_id');
+            }
+
+            if ($duplicateQuery->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This project has already been purchased with this email address.',
+                    'errors' => [
+                        'work_email' => ['This email address has already purchased this project.']
+                    ]
+                ], 422);
+            }
+
+            // If client has an existing password from a previous purchase and none was provided, reuse it
+            if (empty($validated['password'])) {
+                $existingClientWithPassword = Client::whereRaw('LOWER(TRIM(work_email)) = ?', [$email])
+                    ->whereNotNull('password')
+                    ->where('password', '!=', '')
+                    ->latest()
+                    ->first();
+                if ($existingClientWithPassword) {
+                    $validated['password'] = $existingClientWithPassword->password;
+                }
+            }
+        }
+
         // Default status based on payment_type if status wasn't explicitly provided
         if (!empty($validated['payment_type'])) {
             $paymentType = strtolower($validated['payment_type']);
@@ -159,6 +197,33 @@ class ClientController extends Controller
             'expiry_date' => 'nullable|date',
             'location' => 'nullable|string|max:255',
         ]);
+
+        // Validate that the same email cannot have duplicate purchase of the same project
+        if (!empty($validated['work_email'])) {
+            $email = trim(strtolower($validated['work_email']));
+            $productId = $validated['product_id'];
+            $projectId = $validated['project_id'] ?? null;
+
+            $duplicateQuery = Client::where('id', '!=', $client->id)
+                ->whereRaw('LOWER(TRIM(work_email)) = ?', [$email])
+                ->where('product_id', $productId);
+
+            if (!empty($projectId)) {
+                $duplicateQuery->where('project_id', $projectId);
+            } else {
+                $duplicateQuery->whereNull('project_id');
+            }
+
+            if ($duplicateQuery->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This project has already been purchased with this email address.',
+                    'errors' => [
+                        'work_email' => ['This email address has already purchased this project.']
+                    ]
+                ], 422);
+            }
+        }
 
         if (array_key_exists('password', $validated) && ($validated['password'] === null || $validated['password'] === '')) {
             unset($validated['password']);

@@ -62,7 +62,17 @@ class ClientAuthController extends Controller
             });
         }
 
-        $client = $query->first();
+        $projectId = $request->input('project_id');
+        $productId = $request->input('product_id');
+
+        if (!empty($projectId)) {
+            $query->where('project_id', $projectId);
+        }
+        if (!empty($productId)) {
+            $query->where('product_id', $productId);
+        }
+
+        $client = $query->latest()->first();
 
         if (!$client) {
             return response()->json([
@@ -107,19 +117,29 @@ class ClientAuthController extends Controller
 
         $purchaseTransaction = $client->transactions->firstWhere('payment_type', 'purchase');
 
+        // Retrieve all purchased projects for this client's email if they own multiple projects
+        $allPurchasedProjects = [];
+        if (!empty($client->work_email)) {
+            $allPurchasedProjects = Client::whereRaw('LOWER(TRIM(work_email)) = ?', [strtolower(trim($client->work_email))])
+                ->with(['product', 'project', 'membership.project', 'setup', 'projectModules'])
+                ->latest()
+                ->get();
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Client login successful.',
             'data' => [
-                'client'               => $client,
-                'product'              => $client->product,
-                'project'              => $client->project,
-                'membership'           => $client->membership,
-                'setup'                => $client->setup,
-                'project_modules'      => $client->projectModules,
-                'renewals'             => $client->renewals,
-                'transactions'         => $client->transactions,
-                'purchase_transaction' => $purchaseTransaction,
+                'client'                => $client,
+                'product'               => $client->product,
+                'project'               => $client->project,
+                'membership'            => $client->membership,
+                'setup'                 => $client->setup,
+                'project_modules'       => $client->projectModules,
+                'renewals'              => $client->renewals,
+                'transactions'          => $client->transactions,
+                'purchase_transaction'  => $purchaseTransaction,
+                'all_purchased_projects'=> $allPurchasedProjects,
             ]
         ], 200);
     }
