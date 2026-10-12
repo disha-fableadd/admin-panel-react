@@ -75,6 +75,11 @@ class TransactionController extends Controller
 
         $transaction = Transaction::create($validated);
 
+        // When transaction payment status is paid, auto-activate client
+        if ($transaction->status === 'paid' && $transaction->client_id) {
+            \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Transaction created successfully.',
@@ -132,6 +137,11 @@ class TransactionController extends Controller
         ]);
 
         $transaction->update($validated);
+
+        // When transaction payment status is paid, auto-activate client
+        if ($transaction->status === 'paid' && $transaction->client_id) {
+            \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+        }
 
         // If manually marked as paid, and it's a renewal, fulfill it automatically
         if (isset($validated['status']) && $validated['status'] === 'paid' && $transaction->payment_type === 'renewal') {

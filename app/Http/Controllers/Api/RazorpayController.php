@@ -102,10 +102,16 @@ class RazorpayController extends Controller
                     'razorpay_signature' => $request->razorpay_signature,
                     'status' => 'paid',
                 ]);
+
+                // Auto-activate client upon payment
+                if ($transaction->client_id) {
+                    \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+                }
             } else {
                 // If order was not saved during createOrder for some reason, create it now
                 Transaction::create([
                     'user_id' => auth()->id(),
+                    'client_id' => $request->client_id ?? null,
                     'razorpay_order_id' => $request->razorpay_order_id,
                     'razorpay_payment_id' => $request->razorpay_payment_id,
                     'razorpay_signature' => $request->razorpay_signature,
@@ -114,6 +120,10 @@ class RazorpayController extends Controller
                     'status' => 'paid',
                     'description' => 'Payment recorded on verification fallback'
                 ]);
+
+                if (!empty($request->client_id)) {
+                    \App\Models\Client::where('id', $request->client_id)->update(['status' => 'Active']);
+                }
             }
 
             return response()->json([
@@ -287,6 +297,11 @@ class RazorpayController extends Controller
                         'razorpay_payment_id' => $paymentId,
                     ]);
 
+                    // Auto-activate client upon payment
+                    if ($transaction->client_id) {
+                        \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+                    }
+
                     // Automatically update client's expiry date if it's a renewal
                     if ($transaction->client_id && $transaction->payment_type === 'renewal') {
                         $client = \App\Models\Client::find($transaction->client_id);
@@ -341,6 +356,11 @@ class RazorpayController extends Controller
                         'status' => 'paid',
                         'razorpay_payment_id' => $paymentId,
                     ]);
+
+                    // Auto-activate client upon payment
+                    if ($transaction->client_id) {
+                        \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+                    }
                 }
             }
         }
