@@ -14,6 +14,7 @@ class Client extends Model
         'brand_name',
         'work_email',
         'mobile',
+        'password',
         'product_id',
         'project_id',
         'membership_id',

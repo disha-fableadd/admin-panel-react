@@ -79,6 +79,17 @@ class ClientAuthController extends Controller
             ], 403);
         }
 
+        // Verify password if provided in request or if client has password set
+        $password = $request->input('password');
+        if (!empty($password) && !empty($client->password)) {
+            if ($client->password !== $password) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid password.'
+                ], 401);
+            }
+        }
+
         // Eager load only this client's relations
         $client->load([
             'product',
