@@ -30,6 +30,8 @@ class SetupController extends Controller
         $validated = $request->validate([
             'clientId' => 'required|integer',
             'clientName' => 'nullable|string|max:255',
+            'clientPassword' => 'nullable|string|max:255',
+            'client_password' => 'nullable|string|max:255',
             'product' => 'nullable|string',
             'domain' => 'required|string|max:255',
             'databaseName' => 'nullable|string',
@@ -112,6 +114,11 @@ class SetupController extends Controller
                 $clientUpdateData['renewal_amount'] = [is_numeric($validated['renewalAmount']) ? ($validated['renewalAmount'] + 0) : $validated['renewalAmount']];
             }
 
+            $clientPassword = $request->input('clientPassword') ?? $request->input('client_password');
+            if (!empty($clientPassword)) {
+                $clientUpdateData['password'] = $clientPassword;
+            }
+
             if (!empty($clientUpdateData)) {
                 $client->update($clientUpdateData);
             }
@@ -144,6 +151,8 @@ class SetupController extends Controller
         $validated = $request->validate([
             'clientId' => 'required|integer',
             'clientName' => 'nullable|string|max:255',
+            'clientPassword' => 'nullable|string|max:255',
+            'client_password' => 'nullable|string|max:255',
             'product' => 'nullable|string',
             'domain' => 'required|string|max:255',
             'databaseName' => 'nullable|string',
@@ -216,6 +225,11 @@ class SetupController extends Controller
 
             if (array_key_exists('renewalAmount', $validated) && $validated['renewalAmount'] !== null) {
                 $clientUpdateData['renewal_amount'] = [is_numeric($validated['renewalAmount']) ? ($validated['renewalAmount'] + 0) : $validated['renewalAmount']];
+            }
+
+            $clientPassword = $request->input('clientPassword') ?? $request->input('client_password');
+            if (!empty($clientPassword)) {
+                $clientUpdateData['password'] = $clientPassword;
             }
 
             if (!empty($clientUpdateData)) {

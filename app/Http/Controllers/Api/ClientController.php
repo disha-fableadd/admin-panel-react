@@ -48,6 +48,7 @@ class ClientController extends Controller
             'brand_name' => 'nullable|string|max:255',
             'work_email' => 'nullable|email|max:255',
             'mobile' => 'nullable|string|max:20',
+            'password' => 'nullable|string|max:255',
             'product_id' => 'required|integer|exists:products,id',
             'project_id' => 'nullable|integer|exists:projects,id',
             'membership_id' => 'required|integer|exists:memberships,id',
@@ -141,6 +142,7 @@ class ClientController extends Controller
             'brand_name' => 'nullable|string|max:255',
             'work_email' => 'nullable|email|max:255',
             'mobile' => 'nullable|string|max:20',
+            'password' => 'nullable|string|max:255',
             'product_id' => 'required|integer|exists:products,id',
             'project_id' => 'nullable|integer|exists:projects,id',
             'membership_id' => 'required|integer|exists:memberships,id',
@@ -157,6 +159,10 @@ class ClientController extends Controller
             'expiry_date' => 'nullable|date',
             'location' => 'nullable|string|max:255',
         ]);
+
+        if (array_key_exists('password', $validated) && ($validated['password'] === null || $validated['password'] === '')) {
+            unset($validated['password']);
+        }
 
         // Billing info is now taken directly from the request manually
 
