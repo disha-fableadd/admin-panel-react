@@ -46,6 +46,9 @@ Route::get('/memberships', [\App\Http\Controllers\Api\MembershipController::clas
 Route::get('/memberships/{id}', [\App\Http\Controllers\Api\MembershipController::class, 'getPublicMemberships']);
 
 
+// Razorpay API (Without Auth)
+Route::post('/razorpay/payment-link', [\App\Http\Controllers\Api\RazorpayController::class, 'createPaymentLink']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -101,9 +104,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/renewals/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'update']);
     Route::delete('/renewals/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'destroy']);
 
-
-    // Razorpay API
-    Route::post('/razorpay/payment-link', [\App\Http\Controllers\Api\RazorpayController::class, 'createPaymentLink']);
 
     // Transactions API
     Route::get('/transactions', [\App\Http\Controllers\Api\TransactionController::class, 'index']);
