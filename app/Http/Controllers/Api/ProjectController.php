@@ -44,6 +44,35 @@ class ProjectController extends Controller
     }
 
     /**
+     * Get projects without auth (filterable by product_id).
+     */
+    public function getProjectsByProduct(Request $request, $productId = null)
+    {
+        $productId = $productId ?? $request->input('product_id');
+
+        $query = Project::with('product');
+
+        if (!empty($productId)) {
+            $query->where('product_id', $productId);
+        }
+
+        if ($request->has('status') && !empty($request->status)) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('search') && !empty($request->search)) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $projects = $query->latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $projects
+        ], 200);
+    }
+
+    /**
      * Store a newly created project in storage.
      */
     public function store(Request $request)
