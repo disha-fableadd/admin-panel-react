@@ -14,7 +14,7 @@ class SettingController extends Controller
     public function __construct()
     {
         $this->middleware('permission:Settings,VIEW')->only(['getSettings']);
-        $this->middleware('permission:Settings,EDIT')->only(['saveSettings']);
+        $this->middleware('permission:Settings,EDIT')->only(['saveSettings', 'sendTestEmail']);
     }
 
     public function getSettings()
@@ -31,9 +31,41 @@ class SettingController extends Controller
             'status' => 'Active',
             'razorpay_active' => '1',
             'is_default_project' => null,
+
+            // SMTP Email credentials defaults
+            'smtp_active' => '1',
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.hostinger.com',
+            'mail_port' => '465',
+            'mail_username' => '',
+            'mail_password' => '',
+            'mail_encryption' => 'ssl',
+            'mail_from_address' => '',
+            'mail_from_name' => '',
+            'admin_email' => '',
         ];
 
         $setting = array_merge($defaultSettings, $settings);
+
+        // Map snake_case to camelCase aliases for seamless frontend compatibility
+        $camelAliases = [
+            'mail_mailer' => 'mailMailer',
+            'mail_host' => 'mailHost',
+            'mail_port' => 'mailPort',
+            'mail_username' => 'mailUsername',
+            'mail_password' => 'mailPassword',
+            'mail_encryption' => 'mailEncryption',
+            'mail_from_address' => 'mailFromAddress',
+            'mail_from_name' => 'mailFromName',
+            'smtp_active' => 'smtpActive',
+            'admin_email' => 'adminEmail',
+        ];
+
+        foreach ($camelAliases as $snake => $camel) {
+            if (isset($setting[$snake]) && !isset($setting[$camel])) {
+                $setting[$camel] = $setting[$snake];
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -42,13 +74,12 @@ class SettingController extends Controller
     }
 
     /**
-     * 2. POST: Save or Update settings.
-     * If setting data does not exist, it creates (Add).
-     * If setting data exists, it updates (Update).
+     * 2. POST: Save or Update settings (including Razorpay & SMTP credentials).
      */
     public function saveSettings(Request $request)
     {
         $validated = $request->validate([
+            // Gateway / Razorpay
             'gateway_environment' => 'nullable|string|max:255',
             'settlement_currency' => 'nullable|string|max:255',
             'auto_capture' => 'nullable|string|max:255',
@@ -57,15 +88,59 @@ class SettingController extends Controller
             'secret_key' => 'nullable|string',
             'webhook_secret' => 'nullable|string',
             'status' => 'nullable|in:Active,Inactive',
-            'razorpay_active' => 'nullable|in:1,0,true,false',
-            'is_default_project' => 'nullable', // Can be integer or string depending on project ID
+            'razorpay_active' => 'nullable',
+            'is_default_project' => 'nullable',
+
+            // SMTP Email Credentials
+            'smtp_active' => 'nullable',
+            'smtp_status' => 'nullable',
+            'smtpActive' => 'nullable',
+            'mail_mailer' => 'nullable|string|max:255',
+            'mailMailer' => 'nullable|string|max:255',
+            'mail_host' => 'nullable|string|max:255',
+            'mailHost' => 'nullable|string|max:255',
+            'mail_port' => 'nullable|string|max:10',
+            'mailPort' => 'nullable|string|max:10',
+            'mail_username' => 'nullable|string|max:255',
+            'mailUsername' => 'nullable|string|max:255',
+            'mail_password' => 'nullable|string|max:255',
+            'mailPassword' => 'nullable|string|max:255',
+            'mail_encryption' => 'nullable|string|max:255',
+            'mailEncryption' => 'nullable|string|max:255',
+            'mail_from_address' => 'nullable|string|max:255',
+            'mailFromAddress' => 'nullable|string|max:255',
+            'mail_from_name' => 'nullable|string|max:255',
+            'mailFromName' => 'nullable|string|max:255',
+            'admin_email' => 'nullable|string|max:255',
+            'adminEmail' => 'nullable|string|max:255',
         ]);
 
-        // Support both 'secret_key' and 'key_secret' field names
+        // Support both 'secret_key' and 'key_secret'
         if (isset($validated['secret_key']) && !isset($validated['key_secret'])) {
             $validated['key_secret'] = $validated['secret_key'];
         }
         unset($validated['secret_key']);
+
+        // Normalize camelCase to snake_case
+        $aliases = [
+            'mailMailer' => 'mail_mailer',
+            'mailHost' => 'mail_host',
+            'mailPort' => 'mail_port',
+            'mailUsername' => 'mail_username',
+            'mailPassword' => 'mail_password',
+            'mailEncryption' => 'mail_encryption',
+            'mailFromAddress' => 'mail_from_address',
+            'mailFromName' => 'mail_from_name',
+            'smtpActive' => 'smtp_active',
+            'smtp_status' => 'smtp_active',
+            'adminEmail' => 'admin_email',
+        ];
+
+        foreach ($aliases as $camel => $snake) {
+            if (isset($validated[$camel]) && !isset($validated[$snake])) {
+                $validated[$snake] = $validated[$camel];
+            }
+        }
 
         foreach ($validated as $key => $value) {
             Setting::updateOrCreate(
@@ -81,5 +156,20 @@ class SettingController extends Controller
             'message' => 'Settings saved successfully.',
             'data' => $settings
         ], 200);
+    }
+
+    /**
+     * Send test email to verify SMTP configuration
+     */
+    public function sendTestEmail(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        $mailService = app(\App\Services\MailService::class);
+        $result = $mailService->sendTestEmail($request->email);
+
+        return response()->json($result, $result['success'] ? 200 : 400);
     }
 }

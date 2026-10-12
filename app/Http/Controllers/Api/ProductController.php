@@ -44,6 +44,51 @@ class ProductController extends Controller
     }
 
     /**
+     * Get products without auth (all or single by ID, with associated projects).
+     */
+    public function getPublicProducts(Request $request, $id = null)
+    {
+        $productId = $id ?? $request->input('product_id') ?? $request->input('id');
+
+        if (!empty($productId)) {
+            $product = Product::with(['projects', 'projectModules'])->find($productId);
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found.'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $product
+            ], 200);
+        }
+
+        $query = Product::with('projects');
+
+        if ($request->has('status') && !empty($request->status)) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('search') && !empty($request->search)) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        if ($request->boolean('with_modules')) {
+            $query->with('projectModules');
+        }
+
+        $products = $query->latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ], 200);
+    }
+
+    /**
      * Store a newly created product in storage.
      */
     public function store(Request $request)

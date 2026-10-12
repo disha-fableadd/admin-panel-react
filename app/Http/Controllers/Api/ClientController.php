@@ -157,6 +157,15 @@ class ClientController extends Controller
 
         $this->notifyAllUsers('New Client Created', 'A new client was added.');
 
+        // Send emails to specific client and admin both using SMTP settings
+        try {
+            $mailService = app(\App\Services\MailService::class);
+            $mailService->sendClientWelcomeEmail($client);
+            $mailService->sendAdminNewClientEmail($client);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to trigger client/admin email on client creation: ' . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Client created successfully.',

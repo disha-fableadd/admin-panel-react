@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientAuthController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ProductController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -25,6 +26,10 @@ Route::post('/client/login', [ClientAuthController::class, 'login']);
 Route::post('/client-login', [ClientAuthController::class, 'login']);
 Route::get('/client/data/{id?}', [ClientAuthController::class, 'getClientData']);
 Route::post('/client/data', [ClientAuthController::class, 'getClientData']);
+
+// Products API (Without Auth)
+Route::get('/products', [ProductController::class, 'getPublicProducts']);
+Route::get('/products/{id}', [ProductController::class, 'getPublicProducts']);
 
 // Projects API (Without Auth - product_id wise)
 Route::get('/projects', [ProjectController::class, 'getProjectsByProduct']);
@@ -47,8 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Modules API
     Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class);
 
-    // Products API
-    Route::apiResource('products', \App\Http\Controllers\Api\ProductController::class);
+    // Products API (store, update, delete)
+    Route::apiResource('products', \App\Http\Controllers\Api\ProductController::class)->except(['index', 'show']);
 
     // Projects API (store, show, update, delete)
     Route::apiResource('projects', \App\Http\Controllers\Api\ProjectController::class)->except(['index']);
@@ -111,10 +116,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
     Route::post('/notifications/{id}/mark-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
 
-    // Settings API (Razorpay & General)
-    // Settings API (Razorpay: 1 Get & 1 Save/Update)
+    // Settings API (Razorpay & SMTP Email Settings)
     Route::get('/settings', [\App\Http\Controllers\Api\SettingController::class, 'getSettings']);
     Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'saveSettings']);
+    Route::post('/settings/test-email', [\App\Http\Controllers\Api\SettingController::class, 'sendTestEmail']);
     
     Route::post('/logout', [AuthController::class, 'logout']);
 });
