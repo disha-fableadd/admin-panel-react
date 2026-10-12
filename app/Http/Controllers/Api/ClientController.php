@@ -107,11 +107,13 @@ class ClientController extends Controller
             }
         }
 
-        // Default status based on payment_type if status wasn't explicitly provided
+        // Status determination based on payment_type
         if (!empty($validated['payment_type'])) {
             $paymentType = strtolower($validated['payment_type']);
-            if (!isset($validated['status'])) {
-                $validated['status'] = ($paymentType === 'cash') ? 'Active' : 'Inactive';
+            if ($paymentType === 'cash') {
+                $validated['status'] = 'Active'; // Cash payment is directly Active
+            } else {
+                $validated['status'] = $validated['status'] ?? 'Pending';
             }
         } else {
             $validated['status'] = $validated['status'] ?? 'Active';
