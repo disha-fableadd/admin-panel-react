@@ -15,8 +15,16 @@ use Illuminate\Support\Facades\Route;
 */
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ClientAuthController;
 
 Route::post('/login', [AuthController::class, 'login']);
+
+// Client Portal API (Without Auth)
+Route::post('/client/login', [ClientAuthController::class, 'login']);
+Route::post('/client-login', [ClientAuthController::class, 'login']);
+Route::get('/client/data/{id?}', [ClientAuthController::class, 'getClientData']);
+Route::post('/client/data', [ClientAuthController::class, 'getClientData']);
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
