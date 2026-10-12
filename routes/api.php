@@ -48,6 +48,11 @@ Route::get('/memberships/{id}', [\App\Http\Controllers\Api\MembershipController:
 
 // Razorpay API (Without Auth)
 Route::post('/razorpay/payment-link', [\App\Http\Controllers\Api\RazorpayController::class, 'createPaymentLink']);
+Route::post('/razorpay/create-order', [\App\Http\Controllers\Api\RazorpayController::class, 'createOrder']);
+Route::post('/razorpay/order', [\App\Http\Controllers\Api\RazorpayController::class, 'createOrder']);
+Route::post('/razorpay/verify-payment', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
+Route::post('/razorpay/verify', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
+Route::get('/razorpay/order/{orderId}', [\App\Http\Controllers\Api\RazorpayController::class, 'getOrderStatus']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
