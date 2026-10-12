@@ -19,6 +19,13 @@ class SettingController extends Controller
 
     public function getSettings()
     {
+        // Automatically delete any old duplicate camelCase rows if present in DB
+        Setting::whereIn('key', [
+            'smtpActive', 'mailMailer', 'mailHost', 'mailPort',
+            'mailUsername', 'mailPassword', 'mailEncryption',
+            'mailFromAddress', 'mailFromName', 'adminEmail', 'smtp_status'
+        ])->delete();
+
         $settings = Setting::pluck('value', 'key')->toArray();
 
         $defaultSettings = [
@@ -32,7 +39,7 @@ class SettingController extends Controller
             'razorpay_active' => '1',
             'is_default_project' => null,
 
-            // SMTP Email credentials defaults
+            // SMTP Email credentials
             'smtp_active' => '1',
             'mail_mailer' => 'smtp',
             'mail_host' => 'smtp.hostinger.com',
@@ -47,26 +54,6 @@ class SettingController extends Controller
 
         $setting = array_merge($defaultSettings, $settings);
 
-        // Map snake_case to camelCase aliases for seamless frontend compatibility
-        $camelAliases = [
-            'mail_mailer' => 'mailMailer',
-            'mail_host' => 'mailHost',
-            'mail_port' => 'mailPort',
-            'mail_username' => 'mailUsername',
-            'mail_password' => 'mailPassword',
-            'mail_encryption' => 'mailEncryption',
-            'mail_from_address' => 'mailFromAddress',
-            'mail_from_name' => 'mailFromName',
-            'smtp_active' => 'smtpActive',
-            'admin_email' => 'adminEmail',
-        ];
-
-        foreach ($camelAliases as $snake => $camel) {
-            if (isset($setting[$snake]) && !isset($setting[$camel])) {
-                $setting[$camel] = $setting[$snake];
-            }
-        }
-
         return response()->json([
             'success' => true,
             'data' => $setting
@@ -74,7 +61,7 @@ class SettingController extends Controller
     }
 
     /**
-     * 2. POST: Save or Update settings (including Razorpay & SMTP credentials).
+     * 2. POST: Save or Update settings (stores single standard keys only).
      */
     public function saveSettings(Request $request)
     {
@@ -121,7 +108,7 @@ class SettingController extends Controller
         }
         unset($validated['secret_key']);
 
-        // Normalize camelCase to snake_case
+        // Normalize camelCase to snake_case and unset camelCase duplicates
         $aliases = [
             'mailMailer' => 'mail_mailer',
             'mailHost' => 'mail_host',
@@ -137,10 +124,16 @@ class SettingController extends Controller
         ];
 
         foreach ($aliases as $camel => $snake) {
-            if (isset($validated[$camel]) && !isset($validated[$snake])) {
-                $validated[$snake] = $validated[$camel];
+            if (isset($validated[$camel])) {
+                if (!isset($validated[$snake])) {
+                    $validated[$snake] = $validated[$camel];
+                }
+                unset($validated[$camel]); // Remove camelCase so it is NOT saved as duplicate row
             }
         }
+
+        // Clean up any old duplicate camelCase rows in the table
+        Setting::whereIn('key', array_keys($aliases))->delete();
 
         foreach ($validated as $key => $value) {
             Setting::updateOrCreate(
