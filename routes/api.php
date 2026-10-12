@@ -27,6 +27,11 @@ Route::post('/client-login', [ClientAuthController::class, 'login']);
 Route::get('/client/data/{id?}', [ClientAuthController::class, 'getClientData']);
 Route::post('/client/data', [ClientAuthController::class, 'getClientData']);
 
+// Add Client / Purchase API (Without Auth)
+Route::post('/clients', [\App\Http\Controllers\Api\ClientController::class, 'store']);
+Route::post('/client/register', [\App\Http\Controllers\Api\ClientController::class, 'store']);
+Route::post('/client/purchase', [\App\Http\Controllers\Api\ClientController::class, 'store']);
+
 // Products API (Without Auth)
 Route::get('/products', [ProductController::class, 'getPublicProducts']);
 Route::get('/products/{id}', [ProductController::class, 'getPublicProducts']);
@@ -35,6 +40,10 @@ Route::get('/products/{id}', [ProductController::class, 'getPublicProducts']);
 Route::get('/projects', [ProjectController::class, 'getProjectsByProduct']);
 Route::get('/projects/by-product/{productId?}', [ProjectController::class, 'getProjectsByProduct']);
 Route::get('/products/{productId}/projects', [ProjectController::class, 'getProjectsByProduct']);
+
+// Memberships API (Without Auth)
+Route::get('/memberships', [\App\Http\Controllers\Api\MembershipController::class, 'getPublicMemberships']);
+Route::get('/memberships/{id}', [\App\Http\Controllers\Api\MembershipController::class, 'getPublicMemberships']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -64,12 +73,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Billings API
     Route::apiResource('billings', \App\Http\Controllers\Api\BillingController::class);
 
-    // Memberships API
-    Route::apiResource('memberships', \App\Http\Controllers\Api\MembershipController::class);
+    // Memberships API (store, update, delete)
+    Route::apiResource('memberships', \App\Http\Controllers\Api\MembershipController::class)->except(['index', 'show']);
 
-    // Clients API
+    // Clients API (index, show, update, delete)
     Route::get('/clients/upcoming-renewals', [\App\Http\Controllers\Api\ClientController::class, 'upcomingRenewals']);
-    Route::apiResource('clients', \App\Http\Controllers\Api\ClientController::class);
+    Route::apiResource('clients', \App\Http\Controllers\Api\ClientController::class)->except(['store']);
     
     // Setups API
     Route::apiResource('setups', \App\Http\Controllers\Api\SetupController::class);

@@ -53,6 +53,55 @@ class MembershipController extends Controller
     }
 
     /**
+     * Get memberships without auth (filterable by product_id, project_id, etc.).
+     */
+    public function getPublicMemberships(Request $request, $id = null)
+    {
+        $membershipId = $id ?? $request->input('membership_id') ?? $request->input('id');
+
+        if (!empty($membershipId)) {
+            $membership = Membership::with(['product', 'project'])->find($membershipId);
+
+            if (!$membership) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Membership plan not found.'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $membership
+            ], 200);
+        }
+
+        $query = Membership::with(['product', 'project']);
+
+        if ($request->has('product_id') && !empty($request->product_id)) {
+            $query->where('product_id', $request->product_id);
+        }
+
+        if ($request->has('project_id') && !empty($request->project_id)) {
+            $query->where('project_id', $request->project_id);
+        }
+
+        if ($request->has('status') && !empty($request->status)) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('search') && !empty($request->search)) {
+            $query->where('plan_name', 'like', '%' . $request->search . '%');
+        }
+
+        $memberships = $query->latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $memberships
+        ], 200);
+    }
+
+    /**
      * Store a newly created membership in storage.
      */
     public function store(Request $request)

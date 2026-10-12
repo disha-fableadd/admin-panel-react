@@ -13,7 +13,6 @@ class ClientController extends Controller
     public function __construct()
     {
         $this->middleware('permission:Clients,VIEW')->only(['index', 'show']);
-        $this->middleware('permission:Clients,ADD')->only(['store']);
         $this->middleware('permission:Clients,EDIT')->only(['update']);
         $this->middleware('permission:Clients,DELETE')->only(['destroy']);
     }
@@ -144,7 +143,7 @@ class ClientController extends Controller
             }
 
             Transaction::create([
-                'user_id'        => auth()->id(),
+                'user_id'        => auth()->id() ?? null,
                 'client_id'      => $client->id,
                 'amount'         => (float) $paymentAmount,
                 'currency'       => 'INR',
