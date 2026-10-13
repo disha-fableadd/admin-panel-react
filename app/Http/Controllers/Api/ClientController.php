@@ -158,14 +158,7 @@ class ClientController extends Controller
 
         $this->notifyAllUsers('New Client Created', 'A new client was added.');
 
-        // Send emails to specific client and admin both using SMTP settings
-        try {
-            $mailService = app(\App\Services\MailService::class);
-            $mailService->sendClientWelcomeEmail($client);
-            $mailService->sendAdminNewClientEmail($client);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to trigger client/admin email on client creation: ' . $e->getMessage());
-        }
+        // Note: No emails are sent upon client registration/add; emails are sent to both client and admin only after payment success
 
         return response()->json([
             'success' => true,
@@ -314,6 +307,36 @@ class ClientController extends Controller
             'message' => 'Client updated successfully.',
             'data' => $client->load(['product', 'project', 'membership.project', 'projectModules', 'setup'])
         ]);
+    }
+
+    /**
+     * Explicitly send or resend the account active email to a client.
+     */
+    public function resendActiveEmail($id)
+    {
+        $client = Client::with(['product', 'project', 'membership'])->find($id);
+        if (!$client) {
+            return response()->json(['success' => false, 'message' => 'Client not found.'], 404);
+        }
+
+        if (empty($client->work_email)) {
+            return response()->json(['success' => false, 'message' => 'Client does not have a work email address.'], 400);
+        }
+
+        $mailService = app(\App\Services\MailService::class);
+        $sent = $mailService->sendClientAccountActiveEmail($client, true);
+
+        if ($sent) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Account activation email sent successfully to ' . $client->work_email
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send email. Please check SMTP settings.'
+        ], 500);
     }
 
     public function destroy(Client $client)

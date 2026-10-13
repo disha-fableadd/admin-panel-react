@@ -75,7 +75,7 @@ class TransactionController extends Controller
 
         $transaction = Transaction::create($validated);
 
-        // When transaction payment status is paid, auto-activate client
+        // When transaction payment status is paid, auto-activate client and send one-time payment success email
         if ($transaction->status === 'paid' && $transaction->client_id) {
             \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
             try {
@@ -142,11 +142,18 @@ class TransactionController extends Controller
             'description'         => 'nullable|string',
         ]);
 
+        $wasAlreadyPaid = ($transaction->status === 'paid');
         $transaction->update($validated);
 
-        // When transaction payment status is paid, auto-activate client
-        if ($transaction->status === 'paid' && $transaction->client_id) {
+        // When transaction payment status transitions to paid, auto-activate client and send one-time payment success email
+        if (!$wasAlreadyPaid && $transaction->status === 'paid' && $transaction->client_id) {
             \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+            try {
+                $mailService = app(\App\Services\MailService::class);
+                $mailService->sendPaymentSuccessNotifications($transaction);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send payment success notification from TransactionController@update: ' . $e->getMessage());
+            }
         }
 
         // If manually marked as paid, and it's a renewal, fulfill it automatically

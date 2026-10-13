@@ -88,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Clients API (index, show, update, delete)
     Route::get('/clients/upcoming-renewals', [\App\Http\Controllers\Api\ClientController::class, 'upcomingRenewals']);
+    Route::post('/clients/{id}/send-active-email', [\App\Http\Controllers\Api\ClientController::class, 'resendActiveEmail']);
     Route::apiResource('clients', \App\Http\Controllers\Api\ClientController::class)->except(['store']);
     
     // Setups API
