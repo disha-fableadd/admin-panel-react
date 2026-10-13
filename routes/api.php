@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientAuthController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\TermsAndConditionController;
+use App\Http\Controllers\Api\InvoiceController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -55,6 +57,9 @@ Route::post('/razorpay/verify-payment', [\App\Http\Controllers\Api\RazorpayContr
 Route::post('/razorpay/verify-payment-link', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
 Route::post('/razorpay/verify', [\App\Http\Controllers\Api\RazorpayController::class, 'verifyPayment']);
 Route::get('/razorpay/order/{orderId}', [\App\Http\Controllers\Api\RazorpayController::class, 'getOrderStatus']);
+
+// Invoice API (Single API: Company details always + terms & conditions product_id & project_id wise)
+Route::get('/invoice-details', [InvoiceController::class, 'getInvoiceDetails']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
@@ -133,10 +138,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
     Route::post('/notifications/{id}/mark-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
 
-    // Settings API (Razorpay & SMTP Email Settings)
+    // Settings API (Razorpay, SMTP Email & Company Details: company_name, email, contact, address, logo, signature)
     Route::get('/settings', [\App\Http\Controllers\Api\SettingController::class, 'getSettings']);
     Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'saveSettings']);
     Route::post('/settings/test-email', [\App\Http\Controllers\Api\SettingController::class, 'sendTestEmail']);
+
+    // Terms and Conditions API (CRUD)
+    Route::delete('/terms-and-conditions/{id}/item', [TermsAndConditionController::class, 'removeItem']);
+    Route::apiResource('terms-and-conditions', TermsAndConditionController::class);
     
     Route::post('/logout', [AuthController::class, 'logout']);
 });

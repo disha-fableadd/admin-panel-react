@@ -39,4 +39,12 @@ class Project extends Model
     {
         return $this->hasMany(ProjectModule::class);
     }
+
+    /**
+     * Get terms and conditions associated with the project.
+     */
+    public function termsAndConditions()
+    {
+        return $this->hasMany(TermsAndCondition::class);
+    }
 }

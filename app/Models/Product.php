@@ -30,4 +30,12 @@ class Product extends Model
     {
         return $this->hasMany(Project::class);
     }
+
+    /**
+     * Get the terms and conditions associated with the product.
+     */
+    public function termsAndConditions()
+    {
+        return $this->hasMany(TermsAndCondition::class);
+    }
 }
