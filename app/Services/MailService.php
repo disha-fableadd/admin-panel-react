@@ -103,7 +103,7 @@ class MailService
     public function getCompanyName(): string
     {
         $settings = Setting::pluck('value', 'key')->toArray();
-        $name = $settings['mail_from_name'] ?? $settings['mailFromName'] ?? config('app.name', 'Fablead Developers');
+        $name = $settings['company_name'] ?? $settings['mail_from_name'] ?? $settings['mailFromName'] ?? config('app.name', 'Fablead Developers');
         if (empty($name) || strtolower($name) === 'laravel') {
             return 'Fablead Developers';
         }

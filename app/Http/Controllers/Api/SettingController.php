@@ -17,6 +17,38 @@ class SettingController extends Controller
         $this->middleware('permission:Settings,EDIT')->only(['saveSettings', 'sendTestEmail']);
     }
 
+    /**
+     * Helper to retrieve formatted company details from settings table.
+     */
+    public static function getCompanyDetails(): array
+    {
+        $settings = Setting::pluck('value', 'key')->toArray();
+
+        $logo = $settings['company_logo'] ?? $settings['logo'] ?? null;
+        $signature = $settings['company_signature'] ?? $settings['signature'] ?? null;
+
+        $logoUrl = null;
+        if (!empty($logo)) {
+            $logoUrl = filter_var($logo, FILTER_VALIDATE_URL) ? $logo : url($logo);
+        }
+
+        $signatureUrl = null;
+        if (!empty($signature)) {
+            $signatureUrl = filter_var($signature, FILTER_VALIDATE_URL) ? $signature : url($signature);
+        }
+
+        return [
+            'company_name'  => $settings['company_name'] ?? $settings['mail_from_name'] ?? 'Fablead Developers',
+            'email'         => $settings['email'] ?? $settings['company_email'] ?? $settings['mail_from_address'] ?? '',
+            'contact'       => $settings['contact'] ?? $settings['company_contact'] ?? '',
+            'address'       => $settings['address'] ?? $settings['company_address'] ?? '',
+            'logo'          => $logo ?: '',
+            'logo_url'      => $logoUrl,
+            'signature'     => $signature ?: '',
+            'signature_url' => $signatureUrl,
+        ];
+    }
+
     public function getSettings()
     {
         // Automatically delete any old duplicate camelCase rows if present in DB
@@ -50,9 +82,23 @@ class SettingController extends Controller
             'mail_from_address' => '',
             'mail_from_name' => '',
             'admin_email' => '',
+
+            // Company Details
+            'company_name' => 'Fablead Developers',
+            'email' => '',
+            'contact' => '',
+            'address' => '',
+            'logo' => '',
+            'signature' => '',
         ];
 
         $setting = array_merge($defaultSettings, $settings);
+
+        // Add company details and direct URLs
+        $companyDetails = self::getCompanyDetails();
+        $setting['logo_url'] = $companyDetails['logo_url'];
+        $setting['signature_url'] = $companyDetails['signature_url'];
+        $setting['company_details'] = $companyDetails;
 
         return response()->json([
             'success' => true,
@@ -100,6 +146,18 @@ class SettingController extends Controller
             'mailFromName' => 'nullable|string|max:255',
             'admin_email' => 'nullable|string|max:255',
             'adminEmail' => 'nullable|string|max:255',
+
+            // Company Details
+            'company_name' => 'nullable|string|max:255',
+            'companyName' => 'nullable|string|max:255',
+            'email' => 'nullable|string|email|max:255',
+            'company_email' => 'nullable|string|email|max:255',
+            'contact' => 'nullable|string|max:50',
+            'company_contact' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:1000',
+            'company_address' => 'nullable|string|max:1000',
+            'logo' => 'nullable',
+            'signature' => 'nullable',
         ]);
 
         // Support both 'secret_key' and 'key_secret'
@@ -107,6 +165,44 @@ class SettingController extends Controller
             $validated['key_secret'] = $validated['secret_key'];
         }
         unset($validated['secret_key']);
+
+        $currentSettings = Setting::pluck('value', 'key')->toArray();
+
+        // Handle uploaded company logo
+        if ($request->hasFile('logo')) {
+            $uploadDir = public_path('uploads/company');
+            if (!\Illuminate\Support\Facades\File::exists($uploadDir)) {
+                \Illuminate\Support\Facades\File::makeDirectory($uploadDir, 0755, true, true);
+            }
+            $oldLogo = $currentSettings['company_logo'] ?? $currentSettings['logo'] ?? null;
+            if ($oldLogo && \Illuminate\Support\Facades\File::exists(public_path($oldLogo))) {
+                @\Illuminate\Support\Facades\File::delete(public_path($oldLogo));
+            }
+            $file = $request->file('logo');
+            $extension = $file->getClientOriginalExtension() ?: 'png';
+            $filename = 'logo_' . time() . '_' . uniqid() . '.' . $extension;
+            $file->move($uploadDir, $filename);
+            $validated['logo'] = 'uploads/company/' . $filename;
+            $validated['company_logo'] = 'uploads/company/' . $filename;
+        }
+
+        // Handle uploaded company signature
+        if ($request->hasFile('signature')) {
+            $uploadDir = public_path('uploads/company');
+            if (!\Illuminate\Support\Facades\File::exists($uploadDir)) {
+                \Illuminate\Support\Facades\File::makeDirectory($uploadDir, 0755, true, true);
+            }
+            $oldSig = $currentSettings['company_signature'] ?? $currentSettings['signature'] ?? null;
+            if ($oldSig && \Illuminate\Support\Facades\File::exists(public_path($oldSig))) {
+                @\Illuminate\Support\Facades\File::delete(public_path($oldSig));
+            }
+            $file = $request->file('signature');
+            $extension = $file->getClientOriginalExtension() ?: 'png';
+            $filename = 'signature_' . time() . '_' . uniqid() . '.' . $extension;
+            $file->move($uploadDir, $filename);
+            $validated['signature'] = 'uploads/company/' . $filename;
+            $validated['company_signature'] = 'uploads/company/' . $filename;
+        }
 
         // Normalize camelCase to snake_case and unset camelCase duplicates
         $aliases = [
@@ -121,6 +217,10 @@ class SettingController extends Controller
             'smtpActive' => 'smtp_active',
             'smtp_status' => 'smtp_active',
             'adminEmail' => 'admin_email',
+            'companyName' => 'company_name',
+            'companyEmail' => 'email',
+            'companyContact' => 'contact',
+            'companyAddress' => 'address',
         ];
 
         foreach ($aliases as $camel => $snake) {
@@ -143,11 +243,16 @@ class SettingController extends Controller
         }
         
         $settings = Setting::pluck('value', 'key')->toArray();
+        $companyDetails = self::getCompanyDetails();
+        $settings['logo_url'] = $companyDetails['logo_url'];
+        $settings['signature_url'] = $companyDetails['signature_url'];
+        $settings['company_details'] = $companyDetails;
 
         return response()->json([
             'success' => true,
             'message' => 'Settings saved successfully.',
-            'data' => $settings
+            'data' => $settings,
+            'company_details' => $companyDetails
         ], 200);
     }
 
