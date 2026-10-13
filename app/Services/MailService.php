@@ -254,23 +254,12 @@ class MailService
                                     <td class='info-label'>Expiry Date:</td>
                                     <td class='info-value'>{$expiryDate}</td>
                                 </tr>
-                                <tr>
-                                    <td class='info-label'>Login Email:</td>
-                                    <td class='info-value'><span class='highlight-code'>{$client->work_email}</span></td>
-                                </tr>
-                                <tr>
-                                    <td class='info-label'>Login Password:</td>
-                                    <td class='info-value'><span class='highlight-code'>{$passwordText}</span></td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <div class='btn-container'>
-                            <a href='{$portalUrl}' class='btn-primary' target='_blank'>Log In to Your Portal &rarr;</a>
-                        </div>
-
                         <p style='font-size: 13px; color: #6b7280; line-height: 1.6; margin-top: 25px;'>
-                            Please keep your credentials confidential. You can log into your client portal anytime to view your assigned modules, invoices, and service updates.
+                            Please keep this confirmation email for your records. If you have any inquiries regarding your registered services or subscription, please contact our support team.
                         </p>
                     </div>
                     <div class='footer'>
@@ -512,26 +501,6 @@ class MailService
             $paymentMethod = $transaction->payment_method ?: 'Razorpay Online';
             $year = date('Y');
 
-            $credentialsBox = '';
-            if ($client && !empty($client->password)) {
-                $credentialsBox = "
-                <div style='background-color: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 10px; padding: 16px 20px; margin: 22px 0;'>
-                    <h3 style='margin: 0 0 8px 0; font-size: 15px; color: #9a3412; font-weight: 700;'>Client Portal Credentials</h3>
-                    <p style='margin: 0 0 10px 0; font-size: 13px; color: #c2410c;'>You can log into your portal anytime using your registered credentials:</p>
-                    <table style='width: 100%; font-size: 13.5px;'>
-                        <tr>
-                            <td style='width: 35%; font-weight: 600; color: #9a3412; padding: 4px 0;'>Login Email:</td>
-                            <td style='color: #7c2d12; font-family: monospace; font-weight: 700; background: #ffedd5; padding: 3px 8px; border-radius: 4px;'>{$client->work_email}</td>
-                        </tr>
-                        <tr>
-                            <td style='font-weight: 600; color: #9a3412; padding: 4px 0;'>Password:</td>
-                            <td style='color: #7c2d12; font-family: monospace; font-weight: 700; background: #ffedd5; padding: 3px 8px; border-radius: 4px;'>{$client->password}</td>
-                        </tr>
-                    </table>
-                </div>
-                ";
-            }
-
             $html = "
             <!DOCTYPE html>
             <html lang='en'>
@@ -579,7 +548,7 @@ class MailService
                     </div>
                     <div class='content'>
                         <p class='greeting'>Hello <strong>{$recipientName}</strong>,</p>
-                        <p class='greeting'>We have successfully received your payment of <strong>{$amountFormatted}</strong>. Below is your official payment receipt and transaction summary:</p>
+                        <p class='greeting'>We have successfully received your payment of <strong>{$amountFormatted}</strong> and your client registration is confirmed. Below are your official payment receipt, project, and product details:</p>
                         
                         <div class='amount-card'>
                             <div class='amount-label'>Total Amount Paid</div>
@@ -590,10 +559,30 @@ class MailService
                         <table class='info-table'>
                             <thead>
                                 <tr>
-                                    <th colspan='2'>Transaction Summary</th>
+                                    <th colspan='2'>Transaction &amp; Registration Summary</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <tr>
+                                    <td class='info-label'>Client Name:</td>
+                                    <td class='info-value'><strong>{$recipientName}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class='info-label'>Client Email:</td>
+                                    <td class='info-value'>{$recipientEmail}</td>
+                                </tr>
+                                <tr>
+                                    <td class='info-label'>Product:</td>
+                                    <td class='info-value'><strong>{$productTitle}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class='info-label'>Project:</td>
+                                    <td class='info-value'>{$projectName}</td>
+                                </tr>
+                                <tr>
+                                    <td class='info-label'>Membership:</td>
+                                    <td class='info-value'>{$membershipPlan}</td>
+                                </tr>
                                 <tr>
                                     <td class='info-label'>Payment ID:</td>
                                     <td class='info-value'><span class='code-badge'>{$paymentId}</span></td>
@@ -611,20 +600,8 @@ class MailService
                                     <td class='info-value'>{$paymentMethod}</td>
                                 </tr>
                                 <tr>
-                                    <td class='info-label'>Product:</td>
-                                    <td class='info-value'><strong>{$productTitle}</strong></td>
-                                </tr>
-                                <tr>
-                                    <td class='info-label'>Project:</td>
-                                    <td class='info-value'>{$projectName}</td>
-                                </tr>
-                                <tr>
                                     <td class='info-label'>Account Status:</td>
-                                    <td class='info-value'><span style='display:inline-block; background-color:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; text-transform:uppercase;'>● Active</span></td>
-                                </tr>
-                                <tr>
-                                    <td class='info-label'>Membership:</td>
-                                    <td class='info-value'>{$membershipPlan}</td>
+                                    <td class='info-value'><span style='display:inline-block; background-color:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; text-transform:uppercase;'>● Active &amp; Verified</span></td>
                                 </tr>
                                 <tr>
                                     <td class='info-label'>Start Date:</td>
@@ -641,14 +618,8 @@ class MailService
                             </tbody>
                         </table>
 
-                        {$credentialsBox}
-
-                        <div class='btn-container'>
-                            <a href='{$portalUrl}' class='btn-primary' target='_blank'>Go to Client Portal &rarr;</a>
-                        </div>
-
                         <p style='font-size: 13px; color: #6b7280; line-height: 1.6; margin-top: 25px;'>
-                            Please keep this confirmation email for your records. If you have any inquiries regarding this payment, please contact our support team.
+                            Please keep this confirmation email for your records. If you have any inquiries regarding this payment or your services, please contact our support team.
                         </p>
                     </div>
                     <div class='footer'>
