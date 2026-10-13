@@ -6,7 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Setting;
 use App\Models\Transaction;
+use App\Models\Client;
+use App\Models\Renewal;
+use App\Services\MailService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class RazorpayController extends Controller
 {
@@ -17,6 +22,94 @@ class RazorpayController extends Controller
             'key_id' => $settings['key_id'] ?? env('RAZORPAY_KEY'),
             'key_secret' => $settings['key_secret'] ?? env('RAZORPAY_SECRET'),
         ];
+    }
+
+    /**
+     * Complete and mark a transaction as paid, auto-activate client, process renewals, and send notification emails.
+     */
+    private function completePaidTransaction(Transaction $transaction, ?string $paymentId = null, ?string $signature = null): Transaction
+    {
+        $wasAlreadyPaid = ($transaction->status === 'paid');
+
+        $updateData = [
+            'status' => 'paid',
+        ];
+
+        if ($paymentId) {
+            $updateData['razorpay_payment_id'] = $paymentId;
+        }
+
+        if ($signature) {
+            $updateData['razorpay_signature'] = $signature;
+        }
+
+        if (empty($transaction->payment_method)) {
+            $updateData['payment_method'] = $transaction->payment_link_id ? 'Razorpay Link' : 'Razorpay';
+        }
+
+        $transaction->update($updateData);
+
+        $clientId = $transaction->client_id;
+        $paymentType = $transaction->payment_type ?? 'purchase';
+
+        // Auto-activate client upon payment
+        if ($clientId) {
+            Client::where('id', $clientId)->update(['status' => 'Active']);
+        }
+
+        // Automatically update client's expiry date if it's a renewal
+        if ($clientId && $paymentType === 'renewal') {
+            $client = Client::find($clientId);
+            if ($client) {
+                $renewal = Renewal::where('client_id', $clientId)
+                    ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
+                    ->first();
+                
+                $cycle = strtolower(trim($client->billing_title ?? ''));
+                $newEndDate = null;
+                if ($client->expiry_date) {
+                    $newEndDate = (strpos($cycle, 'month') !== false) 
+                        ? Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
+                        : Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                }
+
+                if ($renewal) {
+                    $renewal->update([
+                        'renewal_status' => 'Completed',
+                        'renewal_date' => Carbon::today()->toDateString(),
+                        'amount' => $transaction->amount,
+                        'new_end_date' => $renewal->new_end_date ?? $newEndDate,
+                    ]);
+                    $client->update([
+                        'expiry_date' => $renewal->new_end_date ?? $newEndDate
+                    ]);
+                } else {
+                    Renewal::create([
+                        'client_id' => $client->id,
+                        'renewal_status' => 'Completed',
+                        'amount' => $transaction->amount,
+                        'previous_end_date' => $client->expiry_date,
+                        'renewal_date' => Carbon::today()->toDateString(),
+                        'new_end_date' => $newEndDate,
+                    ]);
+                    $client->update([
+                        'expiry_date' => $newEndDate
+                    ]);
+                }
+            }
+        }
+
+        // Trigger email notification to both Client and Admin if not previously marked paid
+        if (!$wasAlreadyPaid) {
+            try {
+                $mailService = app(MailService::class);
+                $mailService->sendPaymentSuccessNotifications($transaction);
+            } catch (\Throwable $e) {
+                Log::error("Failed to send payment success notification for Transaction #{$transaction->id}: " . $e->getMessage());
+            }
+        }
+
+        return $transaction->fresh();
     }
 
     public function createOrder(Request $request)
@@ -138,9 +231,11 @@ class RazorpayController extends Controller
     public function verifyPayment(Request $request)
     {
         $request->validate([
-            'razorpay_order_id' => 'required|string',
+            'razorpay_order_id' => 'nullable|string',
+            'razorpay_payment_link_id' => 'nullable|string',
+            'payment_link_id' => 'nullable|string',
             'razorpay_payment_id' => 'required|string',
-            'razorpay_signature' => 'required|string',
+            'razorpay_signature' => 'nullable|string',
             'client_id' => 'nullable|integer',
             'payment_type' => 'nullable|string',
         ]);
@@ -151,108 +246,119 @@ class RazorpayController extends Controller
             return response()->json(['success' => false, 'message' => 'Razorpay secret key not configured.'], 400);
         }
 
-        $generatedSignature = hash_hmac(
-            'sha256',
-            $request->razorpay_order_id . '|' . $request->razorpay_payment_id,
-            $credentials['key_secret']
-        );
+        $orderId = $request->razorpay_order_id;
+        $paymentLinkId = $request->razorpay_payment_link_id ?? $request->payment_link_id;
 
-        if (hash_equals($generatedSignature, $request->razorpay_signature)) {
-            // Update transaction status
-            $transaction = Transaction::where('razorpay_order_id', $request->razorpay_order_id)->first();
-            
-            if ($transaction) {
-                $transaction->update([
-                    'razorpay_payment_id' => $request->razorpay_payment_id,
-                    'razorpay_signature' => $request->razorpay_signature,
-                    'status' => 'paid',
-                    'payment_method' => 'Razorpay',
-                ]);
-            } else {
-                // If order was not saved during createOrder for some reason, create it now
+        if (empty($orderId) && empty($paymentLinkId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either razorpay_order_id or razorpay_payment_link_id is required.'
+            ], 422);
+        }
+
+        $isSignatureValid = false;
+
+        // Verify standard order signature
+        if (!empty($orderId) && !empty($request->razorpay_signature)) {
+            $generatedSignature = hash_hmac(
+                'sha256',
+                $orderId . '|' . $request->razorpay_payment_id,
+                $credentials['key_secret']
+            );
+            $isSignatureValid = hash_equals($generatedSignature, $request->razorpay_signature);
+        } elseif (!empty($paymentLinkId) && !empty($request->razorpay_signature)) {
+            // Verify payment link signatures
+            $sig1 = hash_hmac(
+                'sha256',
+                $paymentLinkId . '|' . ($request->razorpay_payment_link_reference_id ?? '') . '|' . ($request->razorpay_payment_link_status ?? '') . '|' . $request->razorpay_payment_id,
+                $credentials['key_secret']
+            );
+            $sig2 = hash_hmac(
+                'sha256',
+                $paymentLinkId . '|' . $request->razorpay_payment_id,
+                $credentials['key_secret']
+            );
+            $isSignatureValid = hash_equals($sig1, $request->razorpay_signature) || hash_equals($sig2, $request->razorpay_signature);
+        }
+
+        // Direct API verification fallback if signature matching failed
+        if (!$isSignatureValid && !empty($credentials['key_id'])) {
+            try {
+                $response = Http::withBasicAuth($credentials['key_id'], $credentials['key_secret'])
+                    ->get('https://api.razorpay.com/v1/payments/' . $request->razorpay_payment_id);
+                if ($response->successful()) {
+                    $paymentData = $response->json();
+                    if (in_array($paymentData['status'] ?? '', ['captured', 'authorized'])) {
+                        $isSignatureValid = true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore API error
+            }
+        }
+
+        if ($isSignatureValid) {
+            // Find existing transaction
+            $transaction = null;
+            if (!empty($orderId)) {
+                $transaction = Transaction::where('razorpay_order_id', $orderId)->first();
+            }
+            if (!$transaction && !empty($paymentLinkId)) {
+                $transaction = Transaction::where('payment_link_id', $paymentLinkId)->first();
+            }
+            if (!$transaction) {
+                $transaction = Transaction::where('razorpay_payment_id', $request->razorpay_payment_id)->first();
+            }
+
+            if (!$transaction) {
+                // Fallback transaction creation
                 $transaction = Transaction::create([
                     'user_id' => auth()->id() ?? null,
                     'client_id' => $request->client_id ?? null,
-                    'razorpay_order_id' => $request->razorpay_order_id,
+                    'razorpay_order_id' => $orderId,
+                    'payment_link_id' => $paymentLinkId,
                     'razorpay_payment_id' => $request->razorpay_payment_id,
                     'razorpay_signature' => $request->razorpay_signature,
                     'amount' => $request->amount ?? 0,
                     'currency' => $request->currency ?? 'INR',
-                    'status' => 'paid',
-                    'payment_method' => 'Razorpay',
+                    'status' => 'pending',
+                    'payment_method' => $paymentLinkId ? 'Razorpay Link' : 'Razorpay',
                     'payment_type' => $request->payment_type ?? 'purchase',
                     'description' => 'Payment recorded on verification fallback'
                 ]);
             }
 
-            $clientId = $transaction->client_id ?? $request->client_id;
-            $paymentType = $transaction->payment_type ?? $request->payment_type ?? 'purchase';
-
-            // Auto-activate client upon payment
-            if ($clientId) {
-                \App\Models\Client::where('id', $clientId)->update(['status' => 'Active']);
-            }
-
-            // Automatically update client's expiry date if it's a renewal
-            if ($clientId && $paymentType === 'renewal') {
-                $client = \App\Models\Client::find($clientId);
-                if ($client) {
-                    $renewal = \App\Models\Renewal::where('client_id', $clientId)
-                        ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
-                        ->first();
-                    
-                    $cycle = strtolower(trim($client->billing_title ?? ''));
-                    $newEndDate = null;
-                    if ($client->expiry_date) {
-                        $newEndDate = (strpos($cycle, 'month') !== false) 
-                            ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
-                            : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
-                    }
-
-                    if ($renewal) {
-                        $renewal->update([
-                            'renewal_status' => 'Completed',
-                            'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                            'amount' => $transaction->amount,
-                            'new_end_date' => $renewal->new_end_date ?? $newEndDate,
-                        ]);
-                        $client->update([
-                            'expiry_date' => $renewal->new_end_date ?? $newEndDate
-                        ]);
-                    } else {
-                        \App\Models\Renewal::create([
-                            'client_id' => $client->id,
-                            'renewal_status' => 'Completed',
-                            'amount' => $transaction->amount,
-                            'previous_end_date' => $client->expiry_date,
-                            'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                            'new_end_date' => $newEndDate,
-                        ]);
-                        $client->update([
-                            'expiry_date' => $newEndDate
-                        ]);
-                    }
-                }
-            }
+            // Complete transaction: marks paid, activates client, processes renewal, and sends client & admin emails
+            $transaction = $this->completePaidTransaction(
+                $transaction,
+                $request->razorpay_payment_id,
+                $request->razorpay_signature
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Payment verified successfully.',
                 'data' => [
                     'transaction_id' => $transaction->id ?? null,
-                    'order_id' => $request->razorpay_order_id,
+                    'order_id' => $orderId,
+                    'payment_link_id' => $paymentLinkId,
                     'payment_id' => $request->razorpay_payment_id,
                     'status' => 'paid',
                 ]
             ]);
         }
 
-        // Mark transaction as failed if signature doesn't match
-        $transaction = Transaction::where('razorpay_order_id', $request->razorpay_order_id)->first();
-        if ($transaction) {
-            $transaction->update([
-                'status' => 'failed',
-            ]);
+        // Mark transaction as failed if verification failed
+        if (!empty($orderId)) {
+            $transaction = Transaction::where('razorpay_order_id', $orderId)->first();
+            if ($transaction && $transaction->status !== 'paid') {
+                $transaction->update(['status' => 'failed']);
+            }
+        } elseif (!empty($paymentLinkId)) {
+            $transaction = Transaction::where('payment_link_id', $paymentLinkId)->first();
+            if ($transaction && $transaction->status !== 'paid') {
+                $transaction->update(['status' => 'failed']);
+            }
         }
 
         return response()->json([
@@ -274,9 +380,74 @@ class RazorpayController extends Controller
             ], 404);
         }
 
+        // Auto-sync status with Razorpay if still pending in local database
+        if ($transaction->status !== 'paid') {
+            $credentials = $this->getRazorpayCredentials();
+            if (!empty($credentials['key_id']) && !empty($credentials['key_secret'])) {
+                try {
+                    $response = Http::withBasicAuth($credentials['key_id'], $credentials['key_secret'])
+                        ->get('https://api.razorpay.com/v1/orders/' . $orderId . '/payments');
+                    if ($response->successful()) {
+                        $payments = $response->json();
+                        foreach ($payments['items'] ?? [] as $payment) {
+                            if (in_array($payment['status'] ?? '', ['captured', 'authorized'])) {
+                                $transaction = $this->completePaidTransaction($transaction, $payment['id']);
+                                break;
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore sync error
+                }
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $transaction
+            'data' => $transaction->fresh()->load(['client.membership', 'client.product'])
+        ]);
+    }
+
+    public function getPaymentLinkStatus($linkId)
+    {
+        $transaction = Transaction::where('payment_link_id', $linkId)
+            ->with(['client.membership', 'client.product'])
+            ->first();
+
+        if (!$transaction) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment link transaction not found.'
+            ], 404);
+        }
+
+        // Auto-sync status with Razorpay if still pending in local database
+        if ($transaction->status !== 'paid') {
+            $credentials = $this->getRazorpayCredentials();
+            if (!empty($credentials['key_id']) && !empty($credentials['key_secret'])) {
+                try {
+                    $response = Http::withBasicAuth($credentials['key_id'], $credentials['key_secret'])
+                        ->get('https://api.razorpay.com/v1/payment_links/' . $linkId);
+                    if ($response->successful()) {
+                        $linkData = $response->json();
+                        if (($linkData['status'] ?? '') === 'paid') {
+                            $paymentId = null;
+                            if (!empty($linkData['payments']) && is_array($linkData['payments'])) {
+                                $lastPayment = end($linkData['payments']);
+                                $paymentId = $lastPayment['payment_id'] ?? null;
+                            }
+                            $transaction = $this->completePaidTransaction($transaction, $paymentId);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore sync error
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $transaction->fresh()->load(['client.membership', 'client.product'])
         ]);
     }
 
@@ -298,7 +469,7 @@ class RazorpayController extends Controller
 
         $amountInPaise = $request->amount * 100;
 
-        $client = \App\Models\Client::find($request->client_id);
+        $client = Client::find($request->client_id);
         $customer = [
             'name' => $client ? $client->client_name : 'Customer',
             'email' => $client ? $client->work_email : '',
@@ -341,9 +512,10 @@ class RazorpayController extends Controller
                     'description' => $request->description,
                     'payment_method' => 'Razorpay Link',
                 ]);
+                $transaction = $existingTransaction;
             } else {
                 // Create a pending transaction record
-                Transaction::create([
+                $transaction = Transaction::create([
                     'user_id' => auth()->id(),
                     'client_id' => $request->client_id,
                     'payment_link_id' => $linkData['id'],
@@ -359,7 +531,7 @@ class RazorpayController extends Controller
 
             // If it's a renewal, make sure an Upcoming renewal record exists in the table
             if (($request->payment_type ?? 'purchase') === 'renewal' && $client) {
-                $existingRenewal = \App\Models\Renewal::where('client_id', $client->id)
+                $existingRenewal = Renewal::where('client_id', $client->id)
                     ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
                     ->first();
                     
@@ -368,11 +540,11 @@ class RazorpayController extends Controller
                     $newEndDate = null;
                     if ($client->expiry_date) {
                         $newEndDate = (strpos($cycle, 'month') !== false) 
-                            ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
-                            : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
+                            ? Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
+                            : Carbon::parse($client->expiry_date)->addYear()->toDateString();
                     }
 
-                    \App\Models\Renewal::create([
+                    Renewal::create([
                         'client_id' => $client->id,
                         'renewal_status' => 'Upcoming',
                         'amount' => $request->amount,
@@ -380,6 +552,16 @@ class RazorpayController extends Controller
                         'renewal_date' => null,
                         'new_end_date' => $newEndDate,
                     ]);
+                }
+            }
+
+            // Send branded payment link invitation to client if client email is available
+            if ($client && !empty($client->work_email)) {
+                try {
+                    $mailService = app(MailService::class);
+                    $mailService->sendPaymentLinkEmail($transaction, $linkData['short_url'], $client);
+                } catch (\Throwable $e) {
+                    Log::warning('Could not send payment link email: ' . $e->getMessage());
                 }
             }
 
@@ -425,58 +607,8 @@ class RazorpayController extends Controller
             
             if ($paymentLinkId) {
                 $transaction = Transaction::where('payment_link_id', $paymentLinkId)->first();
-                if ($transaction && $transaction->status !== 'paid') {
-                    $transaction->update([
-                        'status' => 'paid',
-                        'razorpay_payment_id' => $paymentId,
-                    ]);
-
-                    // Auto-activate client upon payment
-                    if ($transaction->client_id) {
-                        \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
-                    }
-
-                    // Automatically update client's expiry date if it's a renewal
-                    if ($transaction->client_id && $transaction->payment_type === 'renewal') {
-                        $client = \App\Models\Client::find($transaction->client_id);
-                        if ($client) {
-                            $renewal = \App\Models\Renewal::where('client_id', $transaction->client_id)
-                                ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
-                                ->first();
-                            
-                            $cycle = strtolower(trim($client->billing_title ?? ''));
-                            $newEndDate = null;
-                            if ($client->expiry_date) {
-                                $newEndDate = (strpos($cycle, 'month') !== false) 
-                                    ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
-                                    : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
-                            }
-
-                            if ($renewal) {
-                                $renewal->update([
-                                    'renewal_status' => 'Completed',
-                                    'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                                    'amount' => $transaction->amount,
-                                    'new_end_date' => $renewal->new_end_date ?? $newEndDate,
-                                ]);
-                                $client->update([
-                                    'expiry_date' => $renewal->new_end_date ?? $newEndDate
-                                ]);
-                            } else {
-                                \App\Models\Renewal::create([
-                                    'client_id' => $client->id,
-                                    'renewal_status' => 'Completed',
-                                    'amount' => $transaction->amount,
-                                    'previous_end_date' => $client->expiry_date,
-                                    'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                                    'new_end_date' => $newEndDate,
-                                ]);
-                                $client->update([
-                                    'expiry_date' => $newEndDate
-                                ]);
-                            }
-                        }
-                    }
+                if ($transaction) {
+                    $this->completePaidTransaction($transaction, $paymentId);
                 }
             }
         } elseif ($event === 'payment.captured') {
@@ -485,58 +617,8 @@ class RazorpayController extends Controller
             
             if ($orderId) {
                 $transaction = Transaction::where('razorpay_order_id', $orderId)->first();
-                if ($transaction && $transaction->status !== 'paid') {
-                    $transaction->update([
-                        'status' => 'paid',
-                        'razorpay_payment_id' => $paymentId,
-                    ]);
-
-                    // Auto-activate client upon payment
-                    if ($transaction->client_id) {
-                        \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
-                    }
-
-                    // Automatically update client's expiry date if it's a renewal
-                    if ($transaction->client_id && $transaction->payment_type === 'renewal') {
-                        $client = \App\Models\Client::find($transaction->client_id);
-                        if ($client) {
-                            $renewal = \App\Models\Renewal::where('client_id', $transaction->client_id)
-                                ->whereIn('renewal_status', ['Upcoming', 'Overdue', 'Pending'])
-                                ->first();
-                            
-                            $cycle = strtolower(trim($client->billing_title ?? ''));
-                            $newEndDate = null;
-                            if ($client->expiry_date) {
-                                $newEndDate = (strpos($cycle, 'month') !== false) 
-                                    ? \Carbon\Carbon::parse($client->expiry_date)->addMonth()->toDateString() 
-                                    : \Carbon\Carbon::parse($client->expiry_date)->addYear()->toDateString();
-                            }
-
-                            if ($renewal) {
-                                $renewal->update([
-                                    'renewal_status' => 'Completed',
-                                    'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                                    'amount' => $transaction->amount,
-                                    'new_end_date' => $renewal->new_end_date ?? $newEndDate,
-                                ]);
-                                $client->update([
-                                    'expiry_date' => $renewal->new_end_date ?? $newEndDate
-                                ]);
-                            } else {
-                                \App\Models\Renewal::create([
-                                    'client_id' => $client->id,
-                                    'renewal_status' => 'Completed',
-                                    'amount' => $transaction->amount,
-                                    'previous_end_date' => $client->expiry_date,
-                                    'renewal_date' => \Carbon\Carbon::today()->toDateString(),
-                                    'new_end_date' => $newEndDate,
-                                ]);
-                                $client->update([
-                                    'expiry_date' => $newEndDate
-                                ]);
-                            }
-                        }
-                    }
+                if ($transaction) {
+                    $this->completePaidTransaction($transaction, $paymentId);
                 }
             }
         }

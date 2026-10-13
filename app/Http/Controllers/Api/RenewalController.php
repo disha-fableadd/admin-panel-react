@@ -295,7 +295,7 @@ class RenewalController extends Controller
             ]);
 
             // Create Transaction for this renewal
-            \App\Models\Transaction::create([
+            $transaction = \App\Models\Transaction::create([
                 'client_id'      => $renewal->client_id,
                 'amount'         => $validated['amount'],
                 'payment_method' => $paymentMethod,
@@ -305,6 +305,13 @@ class RenewalController extends Controller
                 'user_id'        => auth()->id(),
                 'description'    => 'Renewal processed for client ' . $renewal->client->client_name,
             ]);
+
+            try {
+                $mailService = app(\App\Services\MailService::class);
+                $mailService->sendPaymentSuccessNotifications($transaction, $renewal->client);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send renewal payment success notification: ' . $e->getMessage());
+            }
         }
 
         return response()->json([

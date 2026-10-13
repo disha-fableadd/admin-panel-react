@@ -78,6 +78,12 @@ class TransactionController extends Controller
         // When transaction payment status is paid, auto-activate client
         if ($transaction->status === 'paid' && $transaction->client_id) {
             \App\Models\Client::where('id', $transaction->client_id)->update(['status' => 'Active']);
+            try {
+                $mailService = app(\App\Services\MailService::class);
+                $mailService->sendPaymentSuccessNotifications($transaction);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send payment success notification from TransactionController@store: ' . $e->getMessage());
+            }
         }
 
         return response()->json([
@@ -184,6 +190,16 @@ class TransactionController extends Controller
                         ]);
                     }
                 }
+            }
+        }
+
+        // When updated status is paid, trigger payment notifications
+        if (isset($validated['status']) && $validated['status'] === 'paid') {
+            try {
+                $mailService = app(\App\Services\MailService::class);
+                $mailService->sendPaymentSuccessNotifications($transaction);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send payment success notification from TransactionController@update: ' . $e->getMessage());
             }
         }
 
