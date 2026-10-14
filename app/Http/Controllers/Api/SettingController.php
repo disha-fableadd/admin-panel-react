@@ -90,6 +90,10 @@ class SettingController extends Controller
             'address' => '',
             'logo' => '',
             'signature' => '',
+
+            // GST Settings
+            'gst_type' => 'withoutGst', // 'withGst' or 'withoutGst'
+            'gst' => '0', // percentage
         ];
 
         $setting = array_merge($defaultSettings, $settings);
@@ -123,6 +127,11 @@ class SettingController extends Controller
             'status' => 'nullable|in:Active,Inactive',
             'razorpay_active' => 'nullable',
             'is_default_project' => 'nullable',
+
+            // GST Settings
+            'gst_type' => 'nullable|string|in:withGst,withoutGst,WithGst,WithoutGst,with_gst,without_gst',
+            'gst' => 'nullable|numeric|min:0|max:100',
+            'gst_percentage' => 'nullable|numeric|min:0|max:100',
 
             // SMTP Email Credentials
             'smtp_active' => 'nullable',
@@ -159,6 +168,18 @@ class SettingController extends Controller
             'logo' => 'nullable',
             'signature' => 'nullable',
         ]);
+
+        // Standardize gst_type to withGst / withoutGst
+        if (isset($validated['gst_type'])) {
+            $lowerType = strtolower(str_replace('_', '', $validated['gst_type']));
+            $validated['gst_type'] = ($lowerType === 'withgst') ? 'withGst' : 'withoutGst';
+        }
+
+        // Standardize gst / gst_percentage
+        if (isset($validated['gst_percentage']) && !isset($validated['gst'])) {
+            $validated['gst'] = $validated['gst_percentage'];
+        }
+        unset($validated['gst_percentage']);
 
         // Support both 'secret_key' and 'key_secret'
         if (isset($validated['secret_key']) && !isset($validated['key_secret'])) {
