@@ -14,25 +14,86 @@ use Illuminate\Support\Facades\DB;
 class ReportController extends Controller
 {
     /**
+     * Resolve date range (from filter_range or start_date & end_date)
+     */
+    private function resolveDateRange(Request $request): array
+    {
+        $filterRange = $request->get('filter_range'); // 'today', 'this_week', 'this_month', 'custom'
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        $dateFrom = null;
+        $dateTo = null;
+
+        if ($filterRange) {
+            $range = strtolower(str_replace(' ', '_', trim($filterRange)));
+            if ($range === 'today') {
+                $dateFrom = Carbon::today()->startOfDay();
+                $dateTo   = Carbon::today()->endOfDay();
+            } elseif ($range === 'this_week') {
+                $dateFrom = Carbon::now()->startOfWeek();
+                $dateTo   = Carbon::now()->endOfWeek();
+            } elseif ($range === 'this_month') {
+                $dateFrom = Carbon::now()->startOfMonth();
+                $dateTo   = Carbon::now()->endOfMonth();
+            } elseif ($range === 'custom' || $range === 'custom_date') {
+                if ($startDate) {
+                    $dateFrom = Carbon::parse($startDate)->startOfDay();
+                }
+                if ($endDate) {
+                    $dateTo = Carbon::parse($endDate)->endOfDay();
+                }
+            }
+        } elseif ($startDate || $endDate) {
+            if ($startDate) {
+                $dateFrom = Carbon::parse($startDate)->startOfDay();
+            }
+            if ($endDate) {
+                $dateTo = Carbon::parse($endDate)->endOfDay();
+            }
+        }
+
+        return [$dateFrom, $dateTo];
+    }
+
+    /**
+     * Apply date range to any query builder on a given column
+     */
+    private function applyDateRange($query, ?Carbon $dateFrom, ?Carbon $dateTo, string $column = 'created_at')
+    {
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween($column, [$dateFrom, $dateTo]);
+        } elseif ($dateFrom) {
+            $query->where($column, '>=', $dateFrom);
+        } elseif ($dateTo) {
+            $query->where($column, '<=', $dateTo);
+        }
+    }
+
+    /**
      * Full Reports page data (summary counts + revenue overview + membership status + renewal analysis).
-     * Optional filter: product_id
+     * Optional filter: product_id, filter_range, start_date, end_date, period
      */
     public function summary(Request $request)
     {
-        $period    = $request->get('period', 'month'); // daily, weekly, monthly
-        $productId = $request->get('product_id');
+        $period      = $request->get('period', 'month'); // daily, weekly, monthly
+        $productId   = $request->get('product_id');
+        $filterRange = $request->get('filter_range');
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
 
         // Base query for clients
         $clientQuery = Client::query();
         if ($productId) {
             $clientQuery->where('product_id', $productId);
         }
+        $this->applyDateRange($clientQuery, $dateFrom, $dateTo, 'created_at');
 
         // Base query for memberships
         $membershipQuery = Membership::query();
         if ($productId) {
             $membershipQuery->where('product_id', $productId);
         }
+        $this->applyDateRange($membershipQuery, $dateFrom, $dateTo, 'created_at');
 
         // Base query for transactions
         $transactionQuery = Transaction::query();
@@ -41,13 +102,16 @@ class ReportController extends Controller
                 $q->where('product_id', $productId);
             });
         }
+        $this->applyDateRange($transactionQuery, $dateFrom, $dateTo, 'created_at');
 
         // --- Summary Counts ---
         $totalClients = (clone $clientQuery)->count();
 
-        $activeStaff = User::whereHas('roleModel', function ($q) {
+        $staffQuery = User::whereHas('roleModel', function ($q) {
             $q->where('name', '!=', 'Super Admin');
-        })->where('status', 'Active')->count();
+        })->where('status', 'Active');
+        $this->applyDateRange($staffQuery, $dateFrom, $dateTo, 'created_at');
+        $activeStaff = $staffQuery->count();
 
         $activeMemberships = (clone $membershipQuery)->where('status', 'Active')->count();
 
@@ -63,7 +127,7 @@ class ReportController extends Controller
         $failedPendingPayments = (clone $transactionQuery)->whereIn('status', ['failed', 'created', 'authorized', 'pending'])->count();
 
         // --- Revenue Overview by period ---
-        $revenueOverview = $this->getRevenueOverview($period, $productId);
+        $revenueOverview = $this->getRevenueOverview($period, $productId, $dateFrom, $dateTo);
 
         // Transaction status breakdown
         $successful = (clone $transactionQuery)->whereIn('status', ['captured', 'paid'])->count();
@@ -97,6 +161,13 @@ class ReportController extends Controller
 
         return response()->json([
             'success' => true,
+            'filter' => [
+                'product_id'   => $productId,
+                'filter_range' => $filterRange,
+                'start_date'   => $dateFrom ? $dateFrom->format('Y-m-d') : null,
+                'end_date'     => $dateTo ? $dateTo->format('Y-m-d') : null,
+                'period'       => $period,
+            ],
             'data' => [
                 'summary' => [
                     'total_clients'           => $totalClients,
@@ -105,15 +176,15 @@ class ReportController extends Controller
                     'expiring_memberships'    => $expiringMemberships,
                     'renewals'                => $renewals,
                     'total_transactions'      => $totalTransactions,
-                    'total_revenue'           => $totalRevenue,
+                    'total_revenue'           => (float) $totalRevenue,
                     'failed_pending_payments' => $failedPendingPayments,
                 ],
                 'revenue_overview' => [
-                    'total_revenue' => $totalRevenue,
+                    'total_revenue' => (float) $totalRevenue,
                     'successful'    => $successful,
                     'pending'       => $pending,
                     'failed'        => $failed,
-                    'refunded'      => $refunded,
+                    'refunded'      => (float) $refunded,
                     'chart_data'    => $revenueOverview,
                 ],
                 'membership_status' => [
@@ -148,18 +219,34 @@ class ReportController extends Controller
         $perPage   = (int) $request->get('per_page', 5);
         $page      = (int) $request->get('page', 1);
         $productId = $request->get('product_id', '');
+        $filterRange = $request->get('filter_range');
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
+
+        $applyDate = function ($q) use ($dateFrom, $dateTo) {
+            $this->applyDateRange($q, $dateFrom, $dateTo, 'created_at');
+            return $q;
+        };
 
         $query = Membership::withCount([
-            'clients as total_clients'    => fn($q) => $productId ? $q->where('product_id', $productId) : $q,
-            'clients as active_clients'   => fn($q) => $productId
-                ? $q->where('product_id', $productId)->where('status', 'Active')
-                : $q->where('status', 'Active'),
-            'clients as expired_clients'  => fn($q) => $productId
-                ? $q->where('product_id', $productId)->where('status', 'Expired')
-                : $q->where('status', 'Expired'),
-            'clients as renewed_clients'  => fn($q) => $productId
-                ? $q->where('product_id', $productId)->where('status', 'Renewed')
-                : $q->where('status', 'Renewed'),
+            'clients as total_clients'    => function ($q) use ($productId, $applyDate) {
+                if ($productId) $q->where('product_id', $productId);
+                $applyDate($q);
+            },
+            'clients as active_clients'   => function ($q) use ($productId, $applyDate) {
+                if ($productId) $q->where('product_id', $productId);
+                $q->where('status', 'Active');
+                $applyDate($q);
+            },
+            'clients as expired_clients'  => function ($q) use ($productId, $applyDate) {
+                if ($productId) $q->where('product_id', $productId);
+                $q->where('status', 'Expired');
+                $applyDate($q);
+            },
+            'clients as renewed_clients'  => function ($q) use ($productId, $applyDate) {
+                if ($productId) $q->where('product_id', $productId);
+                $q->where('status', 'Renewed');
+                $applyDate($q);
+            },
         ])
         ->orderByDesc('total_clients');
 
@@ -171,14 +258,17 @@ class ReportController extends Controller
         $total       = $query->count();
         $memberships = $query->offset(($page - 1) * $perPage)->limit($perPage)->get();
 
-        $data = $memberships->map(function ($membership) use ($productId) {
-            // Revenue = sum of captured transactions for clients on this plan (filtered by product_id if set)
-            $revenue = Transaction::whereHas('client', function ($q) use ($membership, $productId) {
+        $data = $memberships->map(function ($membership) use ($productId, $dateFrom, $dateTo) {
+            // Revenue = sum of captured transactions for clients on this plan (filtered by product_id & date if set)
+            $txnQuery = Transaction::whereHas('client', function ($q) use ($membership, $productId) {
                 $q->where('membership_id', $membership->id);
                 if ($productId) {
                     $q->where('product_id', $productId);
                 }
-            })->where('status', 'captured')->sum('amount');
+            })->whereIn('status', ['captured', 'paid']);
+
+            $this->applyDateRange($txnQuery, $dateFrom, $dateTo, 'created_at');
+            $revenue = $txnQuery->sum('amount');
 
             $renewedCount = $membership->renewed_clients ?? 0;
             $expiredCount = $membership->expired_clients ?? 0;
@@ -200,6 +290,12 @@ class ReportController extends Controller
 
         return response()->json([
             'success'    => true,
+            'filter'     => [
+                'product_id'   => $productId,
+                'filter_range' => $filterRange,
+                'start_date'   => $dateFrom ? $dateFrom->format('Y-m-d') : null,
+                'end_date'     => $dateTo ? $dateTo->format('Y-m-d') : null,
+            ],
             'data'       => $data,
             'pagination' => [
                 'total'        => $total,
@@ -216,11 +312,14 @@ class ReportController extends Controller
      */
     public function transactionReport(Request $request)
     {
-        $limit  = (int) $request->get('limit', 5);
-        $page   = (int) $request->get('page', 1);
-        $search = $request->get('search', '');
-        $status = $request->get('status', '');
-        $method = $request->get('method', '');
+        $limit       = (int) $request->get('limit', 5);
+        $page        = (int) $request->get('page', 1);
+        $search      = $request->get('search', '');
+        $status      = $request->get('status', '');
+        $method      = $request->get('method', '');
+        $productId   = $request->get('product_id', '');
+        $filterRange = $request->get('filter_range');
+        [$dateFrom, $dateTo] = $this->resolveDateRange($request);
 
         $query = Transaction::with(['client', 'client.membership'])
             ->latest();
@@ -243,14 +342,15 @@ class ReportController extends Controller
             $query->where('payment_method', $method);
         }
 
-        $productId = $request->get('product_id', '');
         if ($productId) {
             $query->whereHas('client', function ($q) use ($productId) {
                 $q->where('product_id', $productId);
             });
         }
 
-        $total       = $query->count();
+        $this->applyDateRange($query, $dateFrom, $dateTo, 'created_at');
+
+        $total        = $query->count();
         $transactions = $query->offset(($page - 1) * $limit)->limit($limit)->get();
 
         $data = $transactions->map(function ($txn) {
@@ -277,6 +377,12 @@ class ReportController extends Controller
 
         return response()->json([
             'success'    => true,
+            'filter'     => [
+                'product_id'   => $productId,
+                'filter_range' => $filterRange,
+                'start_date'   => $dateFrom ? $dateFrom->format('Y-m-d') : null,
+                'end_date'     => $dateTo ? $dateTo->format('Y-m-d') : null,
+            ],
             'data'       => $data,
             'pagination' => [
                 'total'        => $total,
@@ -288,10 +394,34 @@ class ReportController extends Controller
     }
 
     /**
-     * Helper: build chart data for revenue overview (daily/weekly/monthly).
+     * Helper: build chart data for revenue overview (daily/weekly/monthly/custom).
      */
-    private function getRevenueOverview(string $period, $productId = null): array
+    private function getRevenueOverview(string $period, $productId = null, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): array
     {
+        // If a narrow date range is given (e.g., today, this week, custom within 31 days)
+        if ($dateFrom && $dateTo && $dateFrom->diffInDays($dateTo) <= 31) {
+            $data = [];
+            $daysCount = (int) $dateFrom->diffInDays($dateTo);
+            for ($i = 0; $i <= $daysCount; $i++) {
+                $currentDay = (clone $dateFrom)->addDays($i);
+                $query = Transaction::whereIn('status', ['captured', 'paid'])
+                    ->whereDate('created_at', $currentDay->format('Y-m-d'));
+
+                if ($productId) {
+                    $query->whereHas('client', function ($q) use ($productId) {
+                        $q->where('product_id', $productId);
+                    });
+                }
+
+                $revenue = $query->sum('amount');
+                $data[] = [
+                    'label'   => $currentDay->format('d M'),
+                    'revenue' => (float) $revenue,
+                ];
+            }
+            return $data;
+        }
+
         switch ($period) {
             case 'daily':
                 // Last 7 days
