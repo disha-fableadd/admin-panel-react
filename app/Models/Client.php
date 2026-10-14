@@ -237,8 +237,9 @@ class Client extends Model
 
         // GST details calculation and formatted object for all responses
         $baseAmount = 0.0;
-        if (!empty($this->amount) && is_array($this->amount)) {
-            $baseAmount = (float) (reset($this->amount) ?: 0);
+        $rawAmount = $this->amount;
+        if (!empty($rawAmount) && is_array($rawAmount)) {
+            $baseAmount = (float) (reset($rawAmount) ?: 0);
         }
 
         $gstType = $this->gst_type;
