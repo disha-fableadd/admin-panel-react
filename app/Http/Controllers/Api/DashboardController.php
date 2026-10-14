@@ -87,15 +87,67 @@ class DashboardController extends Controller
     public function dashboardCounts(Request $request)
     {
         $productId = $request->product_id;
+        $filterRange = $request->get('filter_range'); // 'today', 'this_week', 'this_month', 'custom'
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
-        // Base queries with product filtering
+        // Resolve date range if filter_range or custom dates provided
+        $dateFrom = null;
+        $dateTo = null;
+
+        if ($filterRange) {
+            $range = strtolower(str_replace(' ', '_', trim($filterRange)));
+            if ($range === 'today') {
+                $dateFrom = Carbon::today()->startOfDay();
+                $dateTo   = Carbon::today()->endOfDay();
+            } elseif ($range === 'this_week') {
+                $dateFrom = Carbon::now()->startOfWeek();
+                $dateTo   = Carbon::now()->endOfWeek();
+            } elseif ($range === 'this_month') {
+                $dateFrom = Carbon::now()->startOfMonth();
+                $dateTo   = Carbon::now()->endOfMonth();
+            } elseif ($range === 'custom' || $range === 'custom_date') {
+                if ($startDate) {
+                    $dateFrom = Carbon::parse($startDate)->startOfDay();
+                }
+                if ($endDate) {
+                    $dateTo = Carbon::parse($endDate)->endOfDay();
+                }
+            }
+        } elseif ($startDate || $endDate) {
+            if ($startDate) {
+                $dateFrom = Carbon::parse($startDate)->startOfDay();
+            }
+            if ($endDate) {
+                $dateTo = Carbon::parse($endDate)->endOfDay();
+            }
+        }
+
+        // Helper closures to apply date filtering
+        $applyDateFilter = function ($q, $column = 'created_at') use ($dateFrom, $dateTo) {
+            if ($dateFrom && $dateTo) {
+                $q->whereBetween($column, [$dateFrom, $dateTo]);
+            } elseif ($dateFrom) {
+                $q->where($column, '>=', $dateFrom);
+            } elseif ($dateTo) {
+                $q->where($column, '<=', $dateTo);
+            }
+        };
+
+        // Base queries with product filtering & date filtering
         $clientQuery = Client::when($productId, function ($q) use ($productId) {
             $q->where('product_id', $productId);
         });
+        if ($dateFrom || $dateTo) {
+            $applyDateFilter($clientQuery, 'created_at');
+        }
 
         $membershipQuery = Membership::when($productId, function ($q) use ($productId) {
             $q->where('product_id', $productId);
         });
+        if ($dateFrom || $dateTo) {
+            $applyDateFilter($membershipQuery, 'created_at');
+        }
 
         $transactionQuery = Transaction::where(function ($query) {
             $query->where('payment_method', '!=', 'Manual')
@@ -105,13 +157,20 @@ class DashboardController extends Controller
                 $q2->where('product_id', $productId);
             });
         });
+        if ($dateFrom || $dateTo) {
+            $applyDateFilter($transactionQuery, 'created_at');
+        }
 
         // Reports and Dashboard general counts
         $totalClients = (clone $clientQuery)->count();
         
-        $activeStaff = User::whereHas('roleModel', function($q) {
+        $staffQuery = User::whereHas('roleModel', function($q) {
             $q->where('name', '!=', 'Super Admin');
-        })->where('status', 'Active')->count();
+        })->where('status', 'Active');
+        if ($dateFrom || $dateTo) {
+            $applyDateFilter($staffQuery, 'created_at');
+        }
+        $activeStaff = $staffQuery->count();
 
         $activeMemberships = (clone $membershipQuery)->where('status', 'Active')->count();
 
@@ -120,12 +179,6 @@ class DashboardController extends Controller
             ->whereNotNull('expiry_date')
             ->whereBetween('expiry_date', [Carbon::now(), Carbon::now()->addDays(30)])
             ->count();
-
-        $renewalQuery = \App\Models\Renewal::when($productId, function ($q) use ($productId) {
-            $q->whereHas('client', function ($q2) use ($productId) {
-                $q2->where('product_id', $productId);
-            });
-        });
 
         // Renewals: count clients whose membership status is Expired or Expiring Soon
         $clientsForRenewals = (clone $clientQuery)->get();
@@ -138,29 +191,62 @@ class DashboardController extends Controller
         $totalRevenue           = (clone $transactionQuery)->where('status', 'paid')->sum('amount');
         $failedPendingPayments  = (clone $transactionQuery)->where('status', 'pending')->count();
 
-        // --- NEW FEATURES ---
+        // --- CHART / BREAKDOWN FEATURES ---
 
-        // 1. Revenue Overview (Last 7 Days)
+        // 1. Revenue Overview
+        // If a specific date range is selected, show daily revenue within that range or the last 7 days / last 6 months
         $revenueOverview = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = Carbon::today()->subDays($i);
-            $daySum = (clone $transactionQuery)
+        if ($dateFrom && $dateTo && $dateFrom->diffInDays($dateTo) <= 31) {
+            // Day-by-day for short custom ranges
+            $daysCount = (int) $dateFrom->diffInDays($dateTo);
+            for ($i = 0; $i <= $daysCount; $i++) {
+                $currentDay = (clone $dateFrom)->addDays($i);
+                $daySum = Transaction::where(function ($query) {
+                            $query->where('payment_method', '!=', 'Manual')
+                                  ->orWhereNull('payment_method');
+                        })->when($productId, function ($q) use ($productId) {
+                            $q->whereHas('client', function ($q2) use ($productId) {
+                                $q2->where('product_id', $productId);
+                            });
+                        })
+                        ->where('status', 'paid')
+                        ->whereDate('created_at', $currentDay->format('Y-m-d'))
+                        ->sum('amount');
+
+                $revenueOverview[] = [
+                    'day' => $currentDay->format('d M'),
+                    'amount' => (float) $daySum
+                ];
+            }
+        } else {
+            // Default: Last 7 Days or last 6 months
+            for ($i = 6; $i >= 0; $i--) {
+                $date = Carbon::today()->subDays($i);
+                $daySum = Transaction::where(function ($query) {
+                            $query->where('payment_method', '!=', 'Manual')
+                                  ->orWhereNull('payment_method');
+                        })->when($productId, function ($q) use ($productId) {
+                            $q->whereHas('client', function ($q2) use ($productId) {
+                                $q2->where('product_id', $productId);
+                            });
+                        })
                         ->where('status', 'paid')
                         ->whereDate('created_at', $date)
                         ->sum('amount');
-            $revenueOverview[] = [
-                'day' => $date->format('D'), // Mon, Tue, etc.
-                'amount' => $daySum
-            ];
+                $revenueOverview[] = [
+                    'day' => $date->format('D'), // Mon, Tue, etc.
+                    'amount' => (float) $daySum
+                ];
+            }
         }
 
-        // 2. Membership Status (Based on Client statuses, assuming total matches)
+        // 2. Membership Status (Based on filtered Client query)
         $membershipStatus = [
             'total' => $totalClients,
             'active' => (clone $clientQuery)->where('status', 'Active')->count(),
             'expiring_soon' => $expiringMemberships,
             'expired' => (clone $clientQuery)->where('status', 'Expired')->count(),
-            'cancelled' => (clone $clientQuery)->where('status', 'Inactive')->count(), // Or 'Cancelled' if it exists
+            'cancelled' => (clone $clientQuery)->where('status', 'Inactive')->count(),
         ];
 
         // 3. Recent/Upcoming Renewals (Latest 5 from clients with Expired/Expiring Soon status)
@@ -186,6 +272,12 @@ class DashboardController extends Controller
 
         return response()->json([
             'success' => true,
+            'filter' => [
+                'product_id' => $productId,
+                'filter_range' => $filterRange,
+                'start_date' => $dateFrom ? $dateFrom->format('Y-m-d') : null,
+                'end_date' => $dateTo ? $dateTo->format('Y-m-d') : null,
+            ],
             'data' => [
                 'total_clients' => $totalClients,
                 'active_staff' => $activeStaff,
@@ -193,12 +285,12 @@ class DashboardController extends Controller
                 'expiring_memberships' => $expiringMemberships,
                 'renewals' => $renewals,
                 'total_transactions' => $totalTransactions,
-                'total_revenue' => $totalRevenue,
+                'total_revenue' => (float) $totalRevenue,
                 'failed_pending_payments' => $failedPendingPayments,
                 
                 // Added arrays
                 'revenue_overview' => [
-                    'total' => $totalRevenue,
+                    'total' => (float) $totalRevenue,
                     'chart' => $revenueOverview
                 ],
                 'membership_status' => $membershipStatus,
