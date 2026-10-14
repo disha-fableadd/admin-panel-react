@@ -150,12 +150,12 @@ class ClientController extends Controller
         $totalAmount = $baseAmount;
 
         if ($cleanGstType === 'withGst') {
-            $gstAmount = round(($baseAmount * $gstPercentageInput) / 100, 2);
-            $totalAmount = round($baseAmount + $gstAmount, 2);
+            $gstAmount = round(($baseAmount * $gstPercentageInput) / 100);
+            $totalAmount = round($baseAmount + $gstAmount);
         } else {
             $gstPercentageInput = 0.0;
             $gstAmount = 0.0;
-            $totalAmount = $baseAmount;
+            $totalAmount = round($baseAmount);
         }
 
         $validated['gst_type'] = $cleanGstType;
@@ -297,12 +297,12 @@ class ClientController extends Controller
             }
 
             if ($cleanGstType === 'withGst') {
-                $gstAmount = round(($baseAmount * $gstPercentageInput) / 100, 2);
-                $totalAmount = round($baseAmount + $gstAmount, 2);
+                $gstAmount = round(($baseAmount * $gstPercentageInput) / 100);
+                $totalAmount = round($baseAmount + $gstAmount);
             } else {
                 $gstPercentageInput = 0.0;
                 $gstAmount = 0.0;
-                $totalAmount = $baseAmount;
+                $totalAmount = round($baseAmount);
             }
 
             $validated['gst_type'] = $cleanGstType;

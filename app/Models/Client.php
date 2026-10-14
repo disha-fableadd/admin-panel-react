@@ -257,10 +257,10 @@ class Client extends Model
         $isWithGst = (strtolower(str_replace('_', '', (string)$gstType)) === 'withgst');
         if ($isWithGst) {
             if ($gstAmount <= 0 && $baseAmount > 0 && $gstPercentage > 0) {
-                $gstAmount = round(($baseAmount * $gstPercentage) / 100, 2);
+                $gstAmount = round(($baseAmount * $gstPercentage) / 100);
             }
             if ($totalAmount <= 0 && $baseAmount > 0) {
-                $totalAmount = round($baseAmount + $gstAmount, 2);
+                $totalAmount = round($baseAmount + $gstAmount);
             }
         } else {
             $gstType = 'withoutGst';
