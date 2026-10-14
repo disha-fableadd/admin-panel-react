@@ -64,6 +64,13 @@ class ClientController extends Controller
             'expiry_date' => 'nullable|date',
             'location' => 'nullable|string|max:255',
 
+            // GST fields (optional override from request, otherwise fetched from settings table)
+            'gst_type' => 'nullable|string',
+            'gst_percentage' => 'nullable|numeric|min:0',
+            'gst' => 'nullable|numeric|min:0',
+            'gst_amount' => 'nullable|numeric|min:0',
+            'total_amount' => 'nullable|numeric|min:0',
+
             // Optional Payment details
             'payment_type' => 'nullable|string',
             'payment_amount' => 'nullable|numeric',
@@ -119,6 +126,43 @@ class ClientController extends Controller
             $validated['status'] = $validated['status'] ?? 'Active';
         }
 
+        // GST Calculation based on Settings table
+        $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
+        $globalGstType = $settings['gst_type'] ?? 'withoutGst';
+        $globalGstPercentage = (float) ($settings['gst'] ?? $settings['gst_percentage'] ?? 0);
+
+        // Normalize requested gst_type if supplied
+        $gstTypeInput = $validated['gst_type'] ?? $globalGstType;
+        $cleanGstType = (strtolower(str_replace('_', '', $gstTypeInput)) === 'withgst') ? 'withGst' : 'withoutGst';
+
+        $gstPercentageInput = isset($validated['gst_percentage']) ? (float)$validated['gst_percentage'] : (isset($validated['gst']) ? (float)$validated['gst'] : $globalGstPercentage);
+        unset($validated['gst']);
+
+        // Determine base amount
+        $baseAmount = 0.0;
+        if (!empty($validated['amount']) && is_array($validated['amount'])) {
+            $baseAmount = (float) (reset($validated['amount']) ?: 0);
+        } elseif (isset($validated['payment_amount']) && $validated['payment_amount'] !== null) {
+            $baseAmount = (float) $validated['payment_amount'];
+        }
+
+        $gstAmount = 0.0;
+        $totalAmount = $baseAmount;
+
+        if ($cleanGstType === 'withGst') {
+            $gstAmount = round(($baseAmount * $gstPercentageInput) / 100, 2);
+            $totalAmount = round($baseAmount + $gstAmount, 2);
+        } else {
+            $gstPercentageInput = 0.0;
+            $gstAmount = 0.0;
+            $totalAmount = $baseAmount;
+        }
+
+        $validated['gst_type'] = $cleanGstType;
+        $validated['gst_percentage'] = $gstPercentageInput;
+        $validated['gst_amount'] = $gstAmount;
+        $validated['total_amount'] = $totalAmount;
+
         // Extract payment fields before creating client record
         $paymentType = isset($validated['payment_type']) ? strtolower($validated['payment_type']) : null;
         $paymentAmount = $validated['payment_amount'] ?? null;
@@ -134,14 +178,9 @@ class ClientController extends Controller
 
         // If payment_type is provided, automatically record the transaction
         if ($paymentType) {
-            // Determine transaction amount if not explicitly given
+            // Determine transaction amount (use total_amount when GST applies)
             if ($paymentAmount === null) {
-                $clientAmount = $client->amount;
-                if (!empty($clientAmount) && is_array($clientAmount)) {
-                    $paymentAmount = (float) (reset($clientAmount) ?: 0);
-                } else {
-                    $paymentAmount = 0;
-                }
+                $paymentAmount = ($totalAmount > 0) ? $totalAmount : $baseAmount;
             }
 
             Transaction::create([
@@ -199,6 +238,13 @@ class ClientController extends Controller
             'start_date' => 'nullable|date',
             'expiry_date' => 'nullable|date',
             'location' => 'nullable|string|max:255',
+
+            // Optional GST fields
+            'gst_type' => 'nullable|string',
+            'gst_percentage' => 'nullable|numeric|min:0',
+            'gst' => 'nullable|numeric|min:0',
+            'gst_amount' => 'nullable|numeric|min:0',
+            'total_amount' => 'nullable|numeric|min:0',
         ]);
 
         // Validate that the same email cannot have duplicate purchase of the same project
@@ -232,7 +278,38 @@ class ClientController extends Controller
             unset($validated['password']);
         }
 
-        // Billing info is now taken directly from the request manually
+        // Check if amount or gst fields are provided in update to recalculate GST
+        if (array_key_exists('amount', $validated) || array_key_exists('gst_type', $validated) || array_key_exists('gst_percentage', $validated) || array_key_exists('gst', $validated)) {
+            $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
+            $globalGstType = $settings['gst_type'] ?? 'withoutGst';
+            $globalGstPercentage = (float) ($settings['gst'] ?? $settings['gst_percentage'] ?? 0);
+
+            $gstTypeInput = $validated['gst_type'] ?? $client->gst_type ?? $globalGstType;
+            $cleanGstType = (strtolower(str_replace('_', '', $gstTypeInput)) === 'withgst') ? 'withGst' : 'withoutGst';
+
+            $gstPercentageInput = isset($validated['gst_percentage']) ? (float)$validated['gst_percentage'] : (isset($validated['gst']) ? (float)$validated['gst'] : ($client->gst_percentage ?? $globalGstPercentage));
+            unset($validated['gst']);
+
+            $baseAmount = 0.0;
+            $checkAmount = array_key_exists('amount', $validated) ? $validated['amount'] : $client->amount;
+            if (!empty($checkAmount) && is_array($checkAmount)) {
+                $baseAmount = (float) (reset($checkAmount) ?: 0);
+            }
+
+            if ($cleanGstType === 'withGst') {
+                $gstAmount = round(($baseAmount * $gstPercentageInput) / 100, 2);
+                $totalAmount = round($baseAmount + $gstAmount, 2);
+            } else {
+                $gstPercentageInput = 0.0;
+                $gstAmount = 0.0;
+                $totalAmount = $baseAmount;
+            }
+
+            $validated['gst_type'] = $cleanGstType;
+            $validated['gst_percentage'] = $gstPercentageInput;
+            $validated['gst_amount'] = $gstAmount;
+            $validated['total_amount'] = $totalAmount;
+        }
 
         $client->update($validated);
 

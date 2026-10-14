@@ -598,7 +598,19 @@ class MailService
                                 <tr>
                                     <td class='info-label'>Payment Method:</td>
                                     <td class='info-value'>{$paymentMethod}</td>
+                                </tr>" . ($client && $client->gst_type === 'withGst' && $client->gst_amount > 0 ? "
+                                <tr>
+                                    <td class='info-label'>Base Amount:</td>
+                                    <td class='info-value'>{$currencySymbol}" . number_format((float)($client->total_amount - $client->gst_amount), 2) . "</td>
                                 </tr>
+                                <tr>
+                                    <td class='info-label'>GST ({$client->gst_percentage}%):</td>
+                                    <td class='info-value'>{$currencySymbol}" . number_format((float)$client->gst_amount, 2) . "</td>
+                                </tr>
+                                <tr>
+                                    <td class='info-label'>Total with GST:</td>
+                                    <td class='info-value'><strong>{$currencySymbol}" . number_format((float)$client->total_amount, 2) . "</strong></td>
+                                </tr>" : "") . "
                                 <tr>
                                     <td class='info-label'>Account Status:</td>
                                     <td class='info-value'><span style='display:inline-block; background-color:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; text-transform:uppercase;'>● Active &amp; Verified</span></td>
@@ -783,7 +795,19 @@ class MailService
                                 <tr>
                                     <td class='info-label'>Payment Method:</td>
                                     <td class='info-value'>{$paymentMethod}</td>
+                                </tr>" . ($client && $client->gst_type === 'withGst' && $client->gst_amount > 0 ? "
+                                <tr>
+                                    <td class='info-label'>Base Amount:</td>
+                                    <td class='info-value'>{$currencySymbol}" . number_format((float)($client->total_amount - $client->gst_amount), 2) . "</td>
                                 </tr>
+                                <tr>
+                                    <td class='info-label'>GST ({$client->gst_percentage}%):</td>
+                                    <td class='info-value'>{$currencySymbol}" . number_format((float)$client->gst_amount, 2) . "</td>
+                                </tr>
+                                <tr>
+                                    <td class='info-label'>Total with GST:</td>
+                                    <td class='info-value'><strong>{$currencySymbol}" . number_format((float)$client->total_amount, 2) . "</strong></td>
+                                </tr>" : "") . "
                                 <tr>
                                     <td class='info-label'>Product:</td>
                                     <td class='info-value'>{$productTitle}</td>

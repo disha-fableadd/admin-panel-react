@@ -26,12 +26,19 @@ class Client extends Model
         'start_date',
         'expiry_date',
         'location',
+        'gst_type',
+        'gst_percentage',
+        'gst_amount',
+        'total_amount',
     ];
 
     protected $casts = [
         'is_custom_billing' => 'boolean',
         'amount' => 'array',
         'renewal_amount' => 'array',
+        'gst_percentage' => 'float',
+        'gst_amount' => 'float',
+        'total_amount' => 'float',
     ];
 
     // Many-to-Many relationship with ProjectModule
@@ -227,6 +234,52 @@ class Client extends Model
                 $array['membership']['project_modules_id'] = array_values(array_column($filteredData, 'id'));
             }
         }
+
+        // GST details calculation and formatted object for all responses
+        $baseAmount = 0.0;
+        if (!empty($this->amount) && is_array($this->amount)) {
+            $baseAmount = (float) (reset($this->amount) ?: 0);
+        }
+
+        $gstType = $this->gst_type;
+        $gstPercentage = (float) ($this->gst_percentage ?? 0);
+        $gstAmount = (float) ($this->gst_amount ?? 0);
+        $totalAmount = (float) ($this->total_amount ?? 0);
+
+        // If client had no gst_type stored yet, fetch system settings fallback
+        if (empty($gstType)) {
+            $settings = \App\Models\Setting::pluck('value', 'key')->toArray();
+            $gstType = $settings['gst_type'] ?? 'withoutGst';
+            $gstPercentage = (float) ($settings['gst'] ?? $settings['gst_percentage'] ?? 0);
+        }
+
+        $isWithGst = (strtolower(str_replace('_', '', (string)$gstType)) === 'withgst');
+        if ($isWithGst) {
+            if ($gstAmount <= 0 && $baseAmount > 0 && $gstPercentage > 0) {
+                $gstAmount = round(($baseAmount * $gstPercentage) / 100, 2);
+            }
+            if ($totalAmount <= 0 && $baseAmount > 0) {
+                $totalAmount = round($baseAmount + $gstAmount, 2);
+            }
+        } else {
+            $gstType = 'withoutGst';
+            $gstPercentage = 0.0;
+            $gstAmount = 0.0;
+            $totalAmount = ($totalAmount > 0) ? $totalAmount : $baseAmount;
+        }
+
+        $array['gst_type'] = $gstType;
+        $array['gst_percentage'] = $gstPercentage;
+        $array['gst_amount'] = $gstAmount;
+        $array['total_amount'] = $totalAmount;
+        $array['gst_details'] = [
+            'gst_type' => $gstType,
+            'is_with_gst' => $isWithGst,
+            'base_amount' => $baseAmount,
+            'gst_percentage' => $gstPercentage,
+            'gst_amount' => $gstAmount,
+            'total_amount' => $totalAmount,
+        ];
 
         return $array;
     }
