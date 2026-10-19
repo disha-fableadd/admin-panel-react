@@ -18,4 +18,17 @@ class Module extends Model
     protected $casts = [
         'permission' => 'array',
     ];
+
+    /**
+     * The relationships that should always be loaded.
+     */
+    protected $with = ['subModules'];
+
+    /**
+     * Get all sub modules for this module.
+     */
+    public function subModules()
+    {
+        return $this->hasMany(SubModule::class, 'module_id');
+    }
 }

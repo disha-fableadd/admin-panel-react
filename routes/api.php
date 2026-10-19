@@ -76,6 +76,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Modules API
     Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class);
 
+    // Sub Modules API
+    Route::get('/modules/{id}/sub-modules', [\App\Http\Controllers\Api\SubModuleController::class, 'getByModule']);
+    Route::apiResource('sub-modules', \App\Http\Controllers\Api\SubModuleController::class);
+
     // Products API (store, update, delete)
     Route::apiResource('products', \App\Http\Controllers\Api\ProductController::class)->except(['index', 'show']);
 
