@@ -48,7 +48,7 @@ class ModuleController extends Controller
         return response()->json([
             'success' => true, 
             'message' => 'Module created successfully.', 
-            'data' => $module
+            'data' => $module->load('subModules')
         ], 201);
     }
 
@@ -97,7 +97,7 @@ class ModuleController extends Controller
         return response()->json([
             'success' => true, 
             'message' => 'Module updated successfully.', 
-            'data' => $module
+            'data' => $module->load('subModules')
         ], 200);
     }
 

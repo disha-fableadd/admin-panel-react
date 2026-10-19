@@ -46,16 +46,18 @@ class AuthController extends Controller
                         return [
                             'module_id' => $module->id,
                             'module_name' => $module->name,
-                            'permission' => ['VIEW', 'ADD', 'EDIT', 'DELETE']
+                            'permission' => ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+                            'sub_modules' => $module->subModules
                         ];
                     });
                 } else {
-                    $user->load('permissions.module');
+                    $user->load('permissions.module.subModules');
                     $permissions = $user->permissions->map(function($perm) {
                         return [
                             'module_id' => $perm->module_id,
                             'module_name' => $perm->module ? $perm->module->name : null,
-                            'permission' => $perm->permission
+                            'permission' => $perm->permission,
+                            'sub_modules' => $perm->module ? $perm->module->subModules : []
                         ];
                     });
                     // Hide the loaded relationship to keep user object clean
@@ -101,16 +103,18 @@ class AuthController extends Controller
                 return [
                     'module_id' => $module->id,
                     'module_name' => $module->name,
-                    'permission' => ['VIEW', 'ADD', 'EDIT', 'DELETE']
+                    'permission' => ['VIEW', 'ADD', 'EDIT', 'DELETE'],
+                    'sub_modules' => $module->subModules
                 ];
             });
         } else {
-            $user->load('permissions.module');
+            $user->load('permissions.module.subModules');
             $permissions = $user->permissions->map(function($perm) {
                 return [
                     'module_id' => $perm->module_id,
                     'module_name' => $perm->module ? $perm->module->name : null,
-                    'permission' => $perm->permission
+                    'permission' => $perm->permission,
+                    'sub_modules' => $perm->module ? $perm->module->subModules : []
                 ];
             });
             $user->unsetRelation('permissions');
